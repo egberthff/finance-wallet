@@ -1,0 +1,38 @@
+# Gradle / Android build output
+.gradle/
+build/
+**/build/
+.kotlin/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Local machine config (SDK path etc.)
+local.properties
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Secrets & signing: never commit (SEC-02)
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+*.pem
+*.p12
+.env
+.env.*
+
+# Real statement samples must never enter the repo (13-import-pipeline.md §13)
+samples-private/
+*.fwbak
+
+# Logs
+*.log
