@@ -16,6 +16,11 @@ naming:
     ignoreAnnotated: ['Composable']
 
 complexity:
+  TooManyFunctions:
+    # EntryTemplates deliberately has one public function per transaction type (docs/10-domain-model.md §3.3);
+    # splitting it would scatter the specification. Private helpers do not count.
+    allowedFunctionsPerClass: 15
+    ignorePrivate: true
   LongParameterList:
     # Room entities mirror table columns 1:1 (docs/11-database-schema.md); splitting them would break that mapping.
     ignoreAnnotated: ['Entity']

@@ -58,14 +58,20 @@ are still **Not written**.
 | # | Acceptance criterion ([plan](docs/milestones/phase-3-foundation.md)) | Status | Evidence |
 |---|---|---|---|
 | 1 | `gradlew build/check` passes: compile, unit tests, static analysis, Lint | **Met** | `check assembleDebug` BUILD SUCCESSFUL incl. detekt 2.0.0-alpha.6 + ktlint 1.8.0 on all modules (no baselines; deviations documented in config/detekt/detekt.yml); warnings-as-errors; Lint 0 errors, 2 accepted warnings (OldTargetApi, MissingApplicationIcon) |
-| 2 | `:domain` tests incl. EX-1..4, 11..14, 16 + properties; coverage ≥ 95 % | **Met** | 35 tests executed, 35 passed; Kover line coverage 100 % (koverVerify passed) |
+| 2 | `:domain` tests incl. EX-1..4, 11..14, 16 + properties; coverage ≥ 95 % | **Met (corrected 2026-11-05)** | See correction below. Now all property tests execute; `:domain` line coverage 98.2 % (koverVerify passed) |
 | 3 | Money-safety rule fails a bad fixture, passes clean code | **Met** | `moneySafetySelfTest`: 7 violations detected; `moneySafetyCleanFixture` and `moneySafety` (domain/data/importers) passed |
 | 4 | Room schema v1 exported; IC checks run in Robolectric | **Met** | `data/schemas/.../1.json` exported; 8 Robolectric DB tests passed; `SchemaConformanceTest` checks exported columns == reference DDL (verified to fail on a deliberate doc mismatch; doc is a declared test input) |
 | 5 | Debug APK builds; merged manifest has no INTERNET | **Met** | `app-debug.apk` built (21.5 MB, debug/unminified); `checkDebugNoNetworkPermission` and `checkReleaseNoNetworkPermission` passed |
 | 6 | On device: launch, lock, FLAG_SECURE, DB unreadable without key (AC-SEC-1/2) | **Not executed** | No Android device connected yet (Q-16) |
 | 7 | Spikes recorded (SQLCipher perf; APK impact of fastexcel/PdfBox/BouncyCastle) | **Partially met** | [docs/spikes/apk-size.md](docs/spikes/apk-size.md): baseline release 9.36 MB; BouncyCastle +31 KB; PdfBox +6.0 MB; fastexcel fails R8 → in-house XLSX reader. **SQLCipher perf needs device** |
 
-Test totals: **60 executed, 60 passed, 0 failed, 0 skipped** (`:domain` 35, `:data` 12, `:app` 13).
+Test totals (latest full `check`): **92 executed, 92 passed, 0 failed, 0 skipped** (`:domain` 67, `:data` 12, `:app` 13).
+
+> **Correction (2026-11-05).** Earlier reports in this file (59 and 60 tests, "properties passed") were wrong for 4 property
+> tests: `AllocationTest` ×2, `MoneyParserFormatterTest` ×1, and `PeriodCalculatorTest` (fixed-length). They were written as
+> `fun t() = runBlocking { checkAll(...) }`, which returns a value, and **JUnit 5 silently skips value-returning `@Test`
+> methods**. They had never executed. The period-contiguity property tests (plain loops) did execute. Fix: `runBlocking<Unit>`.
+> After the fix all of them run and pass. Prevention: a new `testDiscovery` build check fails on this pattern, with a self-test fixture.
 Not covered by automated tests yet: Compose UI (LockScreen, navigation), `AndroidKeystoreKeyWrapper` and SQLCipher encryption (device-only), and BiometricPrompt.
 
 Known issues:
@@ -79,6 +85,7 @@ Phase 3 code exists (see above). Feature rows below reflect it.
 
 | Req group | Requirements | Phase | Impl. status | Files | Tests | Issues / limitations |
 |---|---|---|---|---|---|---|
+| Ledger engine (domain) | TXN-01..05, 08, 12; RPT-03; NW-01; ACC-05 (calc) | 4.1–4.4 | **Implemented + tested (domain only)**: account classes, 11 transaction-type templates with validation codes, invariants I-1..I-3, calculator (balances current/pending/projected, income/spending/adjustment/opening/FX classification, spending by category, net worth) | domain/src/main/.../ledger, common | Executed–Passed: EntryTemplatesTest 15, LedgerCalculatorTest 8, DomainResultTest 4, LedgerPropertyTest (10,000 sequences / 58,387 ops) | Not yet persisted (data layer = step 4.5); allocation ledger = step 4.3 |
 | Accounts | ACC-01..07 | 4 | Planned | — | Not written | — |
 | Transactions + fast entry | TXN-01..13 | 4 | Planned | — | Not written | TXN-13 critical for adoption (R-19) |
 | Categories | CAT-01..04 | 4 | Planned | — | Not written | — |
@@ -124,3 +131,4 @@ Windows 10, Node 22.12 / npm 10.9, Python 3.13, Git 2.47. **Not installed:** JDK
 | 2026-11-05 | Phase 3: toolchain Temurin JDK 21.0.13, Gradle 9.8.2 (wrapper pinned by SHA-256), AGP 9.5.0, Kotlin 2.4.21, SDK platform 36 / build-tools 36.0.0; all downloads SHA-256-verified | 19-environment-setup.md |
 | 2026-11-05 | XLSX import: in-house streaming reader on Android XmlPullParser (fastexcel fails R8 on Android) | docs/spikes/apk-size.md |
 | 2026-11-05 | Owner: commit continuously; defer phone connection, follow up next session | — |
+| 2026-11-05 | Correction: 4 property tests had silently never run (value-returning JUnit 5 tests); fixed + `testDiscovery` guard added | PROGRESS Phase 3 note |

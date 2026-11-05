@@ -135,8 +135,53 @@ val moneySafetyCleanFixture = tasks.register<MoneySafetyCheck>("moneySafetyClean
     expectViolations.set(false)
 }
 
+
+// ---------------------------------------------------------------------------------------------
+// Test-discovery guard. JUnit 5 silently ignores @Test methods that return a value, for example
+// `fun t() = runBlocking { checkAll(...) }`, which returns kotest's PropertyContext. Found 2026-11-05
+// after 5 property tests had never run. Expression-bodied tests must use runBlocking<Unit> or runTest.
+// ---------------------------------------------------------------------------------------------
+abstract class TestDiscoveryCheck : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val sources: ConfigurableFileCollection
+
+    @get:Input
+    abstract val expectViolations: Property<Boolean>
+
+    @TaskAction
+    fun check() {
+        val pattern = Regex("""@Test\s+fun\s+(`[^`]*`)\(\)\s*=\s*runBlocking\s*\{""")
+        val violations =
+            sources.asFileTree.matching { include("**/*.kt") }.flatMap { f ->
+                pattern.findAll(f.readText()).map { "${f.name}: ${it.groupValues[1]}" }.toList()
+            }
+        if (expectViolations.get()) {
+            if (violations.isEmpty()) throw GradleException("test-discovery self-test: expected a violation in the fixture")
+            logger.lifecycle("test-discovery self-test: detected ${violations.size} value-returning test(s), as expected")
+        } else if (violations.isNotEmpty()) {
+            throw GradleException(
+                "Value-returning @Test methods are silently skipped by JUnit 5: " + violations.joinToString("; "),
+            )
+        }
+    }
+}
+
+val testDiscovery = tasks.register<TestDiscoveryCheck>("testDiscovery") {
+    group = "verification"
+    description = "Fails on @Test functions that JUnit 5 would silently skip."
+    listOf("domain", "importers", "data", "app").forEach { m -> sources.from(fileTree("$m/src") { include("*Test*/**/*.kt", "test/**/*.kt") }) }
+    expectViolations.set(false)
+}
+
+val testDiscoverySelfTest = tasks.register<TestDiscoveryCheck>("testDiscoverySelfTest") {
+    group = "verification"
+    sources.from(fileTree("config/test-discovery/fixtures/bad"))
+    expectViolations.set(true)
+}
+
 tasks.register("check") {
     group = "verification"
     description = "Root-level checks."
-    dependsOn(moneySafety, moneySafetySelfTest, moneySafetyCleanFixture)
+    dependsOn(moneySafety, moneySafetySelfTest, moneySafetyCleanFixture, testDiscovery, testDiscoverySelfTest)
 }

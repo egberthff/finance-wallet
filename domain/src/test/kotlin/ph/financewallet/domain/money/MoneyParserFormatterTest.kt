@@ -82,7 +82,7 @@ class MoneyParserFormatterTest {
 
     @Test
     fun `property - format then parse round-trips`() =
-        runBlocking {
+        runBlocking<Unit> {
             checkAll(3_000, Arb.long(-99_999_999_999_999L..99_999_999_999_999L)) { minor ->
                 val text = MoneyFormatter.format(Money(minor, php)).replace("−", "-")
                 assertEquals(AmountParseResult.Ok(Money(minor, php)), MoneyParser.parse(text, php, allowNegative = true))

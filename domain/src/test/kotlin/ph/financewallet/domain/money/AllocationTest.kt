@@ -73,7 +73,7 @@ class AllocationTest {
 
     @Test
     fun `property - shares always sum exactly to the total and are deterministic`() =
-        runBlocking {
+        runBlocking<Unit> {
             checkAll(2_000, Arb.long(-1_000_000_000_000L..1_000_000_000_000L), Arb.list(Arb.int(0..10_000), 1..12)) { total, ws ->
                 val weights = ws.mapIndexed { i, w -> "k%02d".format(i) to w.toLong() }
                 if (weights.sumOf { it.second } == 0L) return@checkAll
@@ -87,7 +87,7 @@ class AllocationTest {
 
     @Test
     fun `property - each share is within one minor unit of its exact proportion`() =
-        runBlocking {
+        runBlocking<Unit> {
             checkAll(2_000, Arb.long(0L..10_000_000L), Arb.list(Arb.int(1..10_000), 1..8)) { total, ws ->
                 val weights = ws.mapIndexed { i, w -> i to w.toLong() }
                 val sum = weights.sumOf { it.second }

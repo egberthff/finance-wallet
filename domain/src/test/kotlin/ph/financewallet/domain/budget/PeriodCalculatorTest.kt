@@ -158,7 +158,7 @@ class PeriodCalculatorTest {
 
     @Test
     fun `property - fixed-length periods contain the date and have the right length`() =
-        runBlocking {
+        runBlocking<Unit> {
             val dates = Arb.localDate(LocalDate.of(2000, 1, 1), LocalDate.of(2060, 12, 31))
             checkAll(3_000, dates, dates, Arb.int(1..PeriodRule.MAX_EVERY_N_DAYS)) { anchor, date, n ->
                 val period = PeriodCalculator.periodContaining(PeriodRule.EveryNDays(anchor, n), date)
