@@ -98,3 +98,6 @@ Windows 10, Node 22.12 / npm 10.9, Python 3.13, Git 2.47. **Not installed:** JDK
 8 GB RAM; 26 GB free disk. Git repo has no commits yet.
 
 | 2026-11-05 | Owner approved Phase 2, toolchain install (JDK + Android SDK), first commit on `main`; owner to provide test device and statement samples | — |
+| 2026-11-05 | Phase 3: Room CHECK constraints realised as abort triggers; schema v1 limited to core ledger tables (others via migrations) | 11-database-schema.md implementation notes |
+| 2026-11-05 | Phase 3: manual DI (`AppContainer`) instead of Hilt for now (fewer deps; Hilt/AGP 9.5 compatibility unverified). Revisit if wiring grows | ADR-0008 tooling note |
+| 2026-11-05 | Phase 3: toolchain Temurin JDK 21.0.13, Gradle 9.8.2 (wrapper pinned by SHA-256), AGP 9.5.0, Kotlin 2.4.21, SDK platform 36 / build-tools 36.0.0; all downloads SHA-256-verified | 19-environment-setup.md |

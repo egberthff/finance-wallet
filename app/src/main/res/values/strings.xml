@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Finance Wallet</string>
+
+    <!-- Navigation (UX-02) -->
+    <string name="nav_home">Home</string>
+    <string name="nav_transactions">Transactions</string>
+    <string name="nav_budgets">Budgets</string>
+    <string name="nav_accounts">Accounts</string>
+    <string name="nav_more">More</string>
+
+    <!-- Honest empty states for sections whose features are not built yet (Phase 4+) -->
+    <string name="section_not_built_title">%1$s is not available yet</string>
+    <string name="section_not_built_message">This section is part of a later development milestone. No data is shown here because none is recorded yet.</string>
+
+    <!-- App lock (SEC-01) -->
+    <string name="lock_setup_title">Create a 6-digit PIN</string>
+    <string name="lock_setup_confirm_title">Re-enter your PIN</string>
+    <string name="lock_setup_mismatch">PINs did not match. Try again.</string>
+    <string name="lock_setup_explainer">The PIN protects the app on this phone. If you forget it, the only recovery is restoring an encrypted backup.</string>
+    <string name="lock_unlock_title">Enter your PIN</string>
+    <string name="lock_wrong_pin">Wrong PIN</string>
+    <string name="lock_locked_out">Too many attempts. Try again in %1$d s.</string>
+    <string name="lock_use_biometric">Use biometrics</string>
+    <string name="lock_biometric_title">Unlock Finance Wallet</string>
+    <string name="lock_biometric_negative">Use PIN</string>
+    <string name="lock_delete">Delete</string>
+    <string name="lock_digit_entered">%1$d of 6 digits entered</string>
+    <string name="loading">Loading</string>
+</resources>

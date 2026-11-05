@@ -5,6 +5,17 @@
 | Engine | SQLite (SQLCipher 4.x) via Room 2.8 (ADR-0002) |
 | Semantics | [10-domain-model.md](10-domain-model.md) |
 
+> **Implementation notes (Phase 3, 2026-11-05)**
+> 1. **CHECK constraints are implemented as triggers.** Room entities cannot declare SQL CHECK constraints. Every CHECK in the reference DDL is
+>    therefore enforced by `BEFORE INSERT` / `BEFORE UPDATE` triggers that `RAISE(ABORT, '<CODE>')`
+>    (`data/.../db/SchemaConstraints.kt`). The guarantee is the same: invalid rows cannot be stored by any code path.
+>    `txn_revision` and `audit_event` additionally get triggers that reject UPDATE and DELETE (append-only).
+>    Partial indexes (`WHERE deleted_at IS NULL`) are full indexes in Room. The query plans are re-checked in the Phase 4 benchmark.
+> 2. **Schema v1 = core ledger tables only:** `ledger_account`, `financial_account`, `category`, `txn`, `entry`, `txn_revision`,
+>    `audit_event`, `app_meta`. The remaining tables arrive in forward-only migrations as their features are built
+>    (budgets/goals Phase 4, debts/recurring/assets Phase 5, import/reconciliation/attachments/rules Phase 6), each with its
+>    constraint triggers and a MigrationTestHelper test. Foreign keys to not-yet-created tables (e.g., `txn.import_batch_id`) are added by those migrations.
+
 The DDL below is the **reference**. Room entities must produce an equivalent schema, and Phase 3 adds a test that compares the
 Room-exported schema JSON with this document's table/column/index list.
 
