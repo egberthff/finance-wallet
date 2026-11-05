@@ -49,6 +49,12 @@ interface LedgerDao {
     @Query("SELECT * FROM ledger_account WHERE id = :id")
     suspend fun ledgerAccount(id: String): LedgerAccountEntity?
 
+    @Query("SELECT * FROM category WHERE ledger_account_id = :id")
+    suspend fun category(id: String): CategoryEntity?
+
+    @Query("SELECT * FROM financial_account WHERE ledger_account_id = :id")
+    suspend fun financialAccount(id: String): FinancialAccountEntity?
+
     // ---- transactions ---------------------------------------------------------------------------------------
 
     @Insert(onConflict = OnConflictStrategy.ABORT)

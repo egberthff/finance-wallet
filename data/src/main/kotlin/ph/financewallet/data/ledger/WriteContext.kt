@@ -2,6 +2,7 @@ package ph.financewallet.data.ledger
 
 import ph.financewallet.domain.id.IdGenerator
 import java.time.Clock
+import java.time.LocalDate
 import java.time.ZoneId
 
 /**
@@ -18,6 +19,9 @@ class WriteContext(
     private var hlcCounter = 0
 
     fun nowMillis(): Long = clock.millis()
+
+    /** Today's calendar date in the user's zone (all period attribution uses local dates, domain §1). */
+    fun today(): LocalDate = LocalDate.now(clock.withZone(zone))
 
     /**
      * Hybrid logical clock stamp `{millis:013}-{counter:05}-{device}` (ADR-0007). Monotonic per device even if the

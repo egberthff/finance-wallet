@@ -262,6 +262,18 @@ A period closes lazily: when the first operation needs the next period, or when 
 | `SWEEP_TO_GOAL` | SWEEP R to the configured goal | as CARRY's negative rule |
 | `MANUAL` | leftover kept in a "to reassign" list until the user acts | as CARRY's negative rule |
 
+**Implementation decisions (Phase 4, 2026-11-05; `RolloverPlanner`, `BudgetService`):**
+- A carried overspend (CARRY with `carryNegative`) starts the next period's category at a negative allocation. This system-written
+  ROLLOVER is the only way a category bucket can be negative; user actions still cannot make it negative.
+- CARRY with no next period (CUSTOM_ONCE budget) puts a positive leftover on the "to reassign" list instead of lapsing silently.
+- SWEEP_TO_GOAL into a goal that is paused/archived or would exceed its linked-account cap goes to "to reassign" instead.
+- "To reassign" leftovers are resolved by the user (carry to next period, sweep to a goal, or expire). Each resolution is recorded
+  under the same idempotency key as an automatic rollover (`rollover:{period}:{category}`); "expire" is a ROLLOVER group with no entries.
+- TRACKED funding counts the budget's own income categories; if the budget has none, it counts all income in scope.
+- A budget may not contain both a category and one of its subcategories (spending of subcategories is counted under the parent),
+  so nothing is counted twice within a budget. Income categories are tracked only (mode NONE, policy EXPIRE).
+- Contributions are allowed to ACTIVE and ACHIEVED goals; PAUSED and ARCHIVED goals only release money.
+
 Late-recorded transactions (dated in a closed period) recompute that period's figures. Rollover entries already created are
 **not** silently changed. The UI shows "period changed after close: R was X, now Y" and offers a correcting REALLOCATE.
 
