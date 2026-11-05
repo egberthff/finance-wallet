@@ -18,7 +18,8 @@ _Last updated: 2026-11-05_
 | 2. Architecture | **Approved by owner (2026-11-05)** | [milestone plan](docs/milestones/phase-2-architecture.md) |
 | 3. Foundation | **Complete except device-only checks** (criterion 6, SQLCipher perf); owner reserved phone testing for final testing (Phase 8) | [milestone plan](docs/milestones/phase-3-foundation.md) |
 | 4. Core financial engine | **Steps 4.1–4.9 implemented and tested on the JVM**; device-only criteria (performance, Maestro journeys 1–9) deferred to Phase 8 by owner. Awaiting owner review before Phase 5 | [milestone plan](docs/milestones/phase-4-core-engine.md) |
-| 5–9 | Planned | — |
+| 5. Advanced finance | **In progress** (owner approved 2026-11-06) | [milestone plan](docs/milestones/phase-5-advanced-finance.md) |
+| 6–9 | Planned | — |
 
 ## Phase 1 deliverables
 
