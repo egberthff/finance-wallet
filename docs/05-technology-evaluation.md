@@ -66,9 +66,9 @@ option needs a JDK and the Android SDK to build an Android app anyway.
 | Format | Candidate | Concern to verify |
 |---|---|---|
 | CSV | Apache Commons CSV 1.14.1 | Small; encodings (UTF-8/BOM, Windows-1252) |
-| XLSX | fastexcel-reader 0.20.2 (streaming) | Android compatibility of its XML stack; APK size. **Apache POI rejected** for size/method count on Android. |
+| XLSX | **In-house streaming reader on Android `XmlPullParser`** (spike 2026-11-05) | fastexcel-reader 0.20.2 **fails R8 on Android** (needs `javax.xml.stream`). Apache POI rejected for size. See docs/spikes/apk-size.md |
 | XLS (legacy) | No lightweight option identified | May remain unsupported. If so, users re-save as XLSX/CSV and the app says so plainly. |
-| PDF (text layer) | PdfBox-Android 2.0.27.0 | APK size (~several MB) and extraction accuracy per layout; password-protected PDFs |
+| PDF (text layer) | PdfBox-Android 2.0.27.0 | Measured **+6.0 MB** release APK (needs `-dontwarn com.gemalto.jp2.**`); extraction accuracy per layout still to verify |
 | Scanned PDF / images | — | **Out of scope** (OCR unreliable for financial data) |
 
 ## 5. Backend (optional services only)

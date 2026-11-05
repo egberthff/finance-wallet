@@ -16,8 +16,9 @@ _Last updated: 2026-11-05_
 |---|---|---|
 | 1. Discovery & validation | **Approved by owner (2026-11-05)** | Native Kotlin stack accepted; open-question defaults adopted |
 | 2. Architecture | **Approved by owner (2026-11-05)** | [milestone plan](docs/milestones/phase-2-architecture.md) |
-| 3. Foundation | **In progress** (started 2026-11-05) | [milestone plan](docs/milestones/phase-3-foundation.md) |
-| 4–9 | Planned | — |
+| 3. Foundation | **Complete except device-only checks** (criterion 6, SQLCipher perf); deferred by owner, follow-up next session | [milestone plan](docs/milestones/phase-3-foundation.md) |
+| 4. Core financial engine | **In progress** (started 2026-11-05, owner: "proceed all") | [milestone plan](docs/milestones/phase-4-core-engine.md) |
+| 5–9 | Planned | — |
 
 ## Phase 1 deliverables
 
@@ -56,15 +57,15 @@ are still **Not written**.
 
 | # | Acceptance criterion ([plan](docs/milestones/phase-3-foundation.md)) | Status | Evidence |
 |---|---|---|---|
-| 1 | `gradlew build/check` passes: compile, unit tests, static analysis, Lint | **Partially met** | `check assembleDebug` BUILD SUCCESSFUL; all Kotlin compiled with warnings-as-errors; Lint: 0 errors, 2 accepted warnings (OldTargetApi: targetSdk 36 deliberate; MissingApplicationIcon: icon pending design). **detekt and ktlint not yet integrated** |
+| 1 | `gradlew build/check` passes: compile, unit tests, static analysis, Lint | **Met** | `check assembleDebug` BUILD SUCCESSFUL incl. detekt 2.0.0-alpha.6 + ktlint 1.8.0 on all modules (no baselines; deviations documented in config/detekt/detekt.yml); warnings-as-errors; Lint 0 errors, 2 accepted warnings (OldTargetApi, MissingApplicationIcon) |
 | 2 | `:domain` tests incl. EX-1..4, 11..14, 16 + properties; coverage ≥ 95 % | **Met** | 35 tests executed, 35 passed; Kover line coverage 100 % (koverVerify passed) |
 | 3 | Money-safety rule fails a bad fixture, passes clean code | **Met** | `moneySafetySelfTest`: 7 violations detected; `moneySafetyCleanFixture` and `moneySafety` (domain/data/importers) passed |
-| 4 | Room schema v1 exported; IC checks run in Robolectric | **Partially met** | `data/schemas/.../1.json` exported; 8 Robolectric DB tests passed (triggers, append-only, FK, unique, IC-1/2/3/4/7). **Automated comparison test vs reference table list not written** |
+| 4 | Room schema v1 exported; IC checks run in Robolectric | **Met** | `data/schemas/.../1.json` exported; 8 Robolectric DB tests passed; `SchemaConformanceTest` checks exported columns == reference DDL (verified to fail on a deliberate doc mismatch; doc is a declared test input) |
 | 5 | Debug APK builds; merged manifest has no INTERNET | **Met** | `app-debug.apk` built (21.5 MB, debug/unminified); `checkDebugNoNetworkPermission` and `checkReleaseNoNetworkPermission` passed |
 | 6 | On device: launch, lock, FLAG_SECURE, DB unreadable without key (AC-SEC-1/2) | **Not executed** | No Android device connected yet (Q-16) |
-| 7 | Spikes recorded (SQLCipher perf; APK impact of fastexcel/PdfBox/BouncyCastle) | **Not started** | — |
+| 7 | Spikes recorded (SQLCipher perf; APK impact of fastexcel/PdfBox/BouncyCastle) | **Partially met** | [docs/spikes/apk-size.md](docs/spikes/apk-size.md): baseline release 9.36 MB; BouncyCastle +31 KB; PdfBox +6.0 MB; fastexcel fails R8 → in-house XLSX reader. **SQLCipher perf needs device** |
 
-Test totals: **59 executed, 59 passed, 0 failed, 0 skipped** (`:domain` 35, `:data` 11, `:app` 13).
+Test totals: **60 executed, 60 passed, 0 failed, 0 skipped** (`:domain` 35, `:data` 12, `:app` 13).
 Not covered by automated tests yet: Compose UI (LockScreen, navigation), `AndroidKeystoreKeyWrapper` and SQLCipher encryption (device-only), and BiometricPrompt.
 
 Known issues:
@@ -121,3 +122,5 @@ Windows 10, Node 22.12 / npm 10.9, Python 3.13, Git 2.47. **Not installed:** JDK
 | 2026-11-05 | Phase 3: Room CHECK constraints realised as abort triggers; schema v1 limited to core ledger tables (others via migrations) | 11-database-schema.md implementation notes |
 | 2026-11-05 | Phase 3: manual DI (`AppContainer`) instead of Hilt for now (fewer deps; Hilt/AGP 9.5 compatibility unverified). Revisit if wiring grows | ADR-0008 tooling note |
 | 2026-11-05 | Phase 3: toolchain Temurin JDK 21.0.13, Gradle 9.8.2 (wrapper pinned by SHA-256), AGP 9.5.0, Kotlin 2.4.21, SDK platform 36 / build-tools 36.0.0; all downloads SHA-256-verified | 19-environment-setup.md |
+| 2026-11-05 | XLSX import: in-house streaming reader on Android XmlPullParser (fastexcel fails R8 on Android) | docs/spikes/apk-size.md |
+| 2026-11-05 | Owner: commit continuously; defer phone connection, follow up next session | — |

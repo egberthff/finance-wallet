@@ -43,7 +43,7 @@ encoding is shown in the preview. The delimiter is sniffed from `, ; \t |` using
 Quoted newlines are supported.
 
 ### 4.2 XLSX
-fastexcel-reader in streaming mode, with the sheet chosen by the user (default: the first non-empty one). Cell types: numbers
+A small in-house streaming reader on the platform `XmlPullParser` (ZIP entries `xl/sharedStrings.xml`, `xl/workbook.xml`, `xl/worksheets/sheetN.xml`); fastexcel-reader was rejected because it does not build for Android (docs/spikes/apk-size.md). Sheet with the sheet chosen by the user (default: the first non-empty one). Cell types: numbers
 are read as their **exact decimal string**, and Excel serial dates are converted with the 1900 date system (1904 if the workbook
 flag is set). Formulas use the cached value; a formula without a cached value rejects the row.
 `.xls` (BIFF) is not supported unless a Phase 3 spike finds a reliable, small library. The user is told to re-save as XLSX or CSV.

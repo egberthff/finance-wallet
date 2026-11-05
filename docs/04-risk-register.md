@@ -22,7 +22,7 @@ Likelihood (L) and Impact (I): 1 (low) – 5 (high). Score = L × I. **≥ 15 = 
 | R-09 | Dev machine constraints: 26 GB free disk, 8 GB RAM, no JDK/Android SDK | 4 | 3 | 12 | JDK first (domain work needs no SDK); SDK command-line tools only, no emulator; physical device; free disk space; Gradle cache limits | Owner (Q-20), Phase 3 |
 | R-13 | Date/timezone bugs in budget periods | 3 | 4 | 12 | `java.time` with explicit zone; exhaustive period tests over 10+ years | Phase 4 |
 | R-14 | Performance on low-end Android devices | 2 | 3 | 6 | Native Kotlin; Paging 3; SQL aggregates; Baseline Profiles; profiling gate | Phase 3 spike, Phase 8 |
-| R-21 | Import library fitness on Android (fastexcel XML stack, PdfBox-Android size) unproven | 3 | 3 | 9 | Phase 3/6 spike measuring APK delta and parse accuracy; fall back to CSV-only plus guidance for a format that fails | Phase 6 entry |
+| R-21 | Import library fitness on Android. **Spike 2026-11-05:** fastexcel unusable (→ in-house XmlPullParser XLSX reader), PdfBox +6 MB (acceptable), BouncyCastle Argon2 +31 KB | 2 | 3 | 6 | Phase 3/6 spike measuring APK delta and parse accuracy; fall back to CSV-only plus guidance for a format that fails | Phase 6 entry |
 | R-15 | AI sends sensitive data externally or gives wrong numbers | 3 | 4 | 12 | Off by default; consent; aggregates only; deterministic numbers; read-only AI | Phase 7 |
 | R-17 | Dependency/supply-chain vulnerabilities | 3 | 4 | 12 | Minimal deps; Gradle dependency verification; Dependabot; review | Ongoing |
 | R-18 | Scope creep | 3 | 3 | 9 | P0/P1/P2; milestone gates; PROGRESS.md | Ongoing |
