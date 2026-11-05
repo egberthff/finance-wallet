@@ -8,9 +8,9 @@ import ph.financewallet.data.db.entity.FinancialAccountEntity
 import ph.financewallet.data.db.entity.LedgerAccountEntity
 import ph.financewallet.data.db.entity.TxnEntity
 import ph.financewallet.data.db.entity.TxnRevisionEntity
+import ph.financewallet.data.db.validatedWrite
 import ph.financewallet.domain.common.DomainResult
 import ph.financewallet.domain.common.ValidationScope
-import ph.financewallet.domain.common.validating
 import ph.financewallet.domain.ledger.AccountClass
 import ph.financewallet.domain.ledger.AccountDirectory
 import ph.financewallet.domain.ledger.EntryTemplates
@@ -73,9 +73,9 @@ class LedgerService(
 
     /** UC-01: account plus optional opening balance. Returns the account id. */
     suspend fun createAccount(req: NewAccount): DomainResult<String> =
-        db.withTransaction {
+        db.validatedWrite {
             val directory = snapshot()
-            validating {
+            run {
                 checkName(req.name)
                 ensure(!req.openingAmount.isNegative, "openingAmount", "AMOUNT_NEGATIVE")
                 ensure(req.openingAmount.currency == req.currency, "openingAmount", "CURRENCY_MISMATCH")
@@ -100,8 +100,8 @@ class LedgerService(
         icon: String = "category",
         colorArgb: Long = DEFAULT_COLOR,
     ): DomainResult<String> =
-        db.withTransaction {
-            validating {
+        db.validatedWrite {
+            run {
                 checkName(name)
                 ensure(accountClass == AccountClass.INCOME || accountClass == AccountClass.EXPENSE, "class", "CATEGORY_WRONG_CLASS")
                 if (parentId != null) {
@@ -123,10 +123,10 @@ class LedgerService(
         header: TxnHeader,
         build: suspend (EntryTemplates, LedgerReads) -> DomainResult<TransactionDraft>,
     ): DomainResult<String> =
-        db.withTransaction {
-            dao.txnByIdempotencyKey(header.idempotencyKey)?.let { return@withTransaction DomainResult.Ok(it.id) }
+        db.validatedWrite {
+            dao.txnByIdempotencyKey(header.idempotencyKey)?.let { return@validatedWrite it.id }
             val directory = directory()
-            validating {
+            run {
                 checkHeader(header)
                 val draft = build(EntryTemplates(directory), reads).bind()
                 insertTransaction(header, draft)
@@ -141,9 +141,9 @@ class LedgerService(
         reason: String? = null,
         build: suspend (EntryTemplates, LedgerReads) -> DomainResult<TransactionDraft>,
     ): DomainResult<Unit> =
-        db.withTransaction {
+        db.validatedWrite {
             val directory = directory()
-            validating {
+            run {
                 checkHeader(header)
                 val current = dao.txn(txnId) ?: notFound("transaction", txnId)
                 ensure(current.deletedAt == null, "txnId", "TXN_DELETED")
@@ -168,8 +168,8 @@ class LedgerService(
         txnId: String,
         reason: String? = null,
     ): DomainResult<Unit> =
-        db.withTransaction {
-            validating {
+        db.validatedWrite {
+            run {
                 val current = dao.txn(txnId) ?: notFound("transaction", txnId)
                 ensure(current.deletedAt == null, "txnId", "TXN_DELETED")
                 ensure(dao.liveReversalOf(txnId) == null, "txnId", "TXN_REVERSED_DELETE_REVERSAL_FIRST")
