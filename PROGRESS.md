@@ -91,7 +91,7 @@ Phase 3 code exists (see above). Feature rows below reflect it.
 | Categories | CAT-01..04 | 4 | Planned | — | Not written | — |
 | Budgets | BUD-01..06, 08 | 4 | Planned | — | Not written | — |
 | Budget rollover | BUD-07 | 5 | Planned | — | Not written | — |
-| Savings | SAV-01..04 | 4 | Planned | — | Not written | — |
+| Savings & allocation ledger (domain) | SAV-01..04, BUD-05/06 | 4.3 | **Implemented + tested (domain only)**: buckets, fund/allocate/percent/reallocate, goal contribute/withdraw/transfer/direct earmark with confirmation + before/after snapshot, linked-account cap (shared-account groups), funding modes, available-to-budget, progress, free money | domain/src/main/.../allocation | Executed–Passed: allocation.AllocationTest 11 incl. property (3,000 sequences) — EX-15, EX-16, EX-17 | Persistence + UI pending (4.5–4.8); rollover is Phase 5 |
 | Income & recurring | INC-01..03 | 4–5 | Planned | — | Not written | — |
 | Debts / assets / net worth | DEBT-01..03, AST-01, NW-01..02 | 5 | Planned | — | Not written | — |
 | Bills & subscriptions | BILL-01..03 | 5 | Planned | — | Not written | Reminders best-effort (Doze/OEM) |
