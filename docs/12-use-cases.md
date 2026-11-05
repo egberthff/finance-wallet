@@ -46,6 +46,18 @@ Use cases are the **only** code allowed to write to the database (06-architectur
 | UC-31 | DeleteAllData | double confirmation + PIN | DB + key + attachments wiped, app reset | PRIV-01 |
 | UC-32 | SetupAppLock / Unlock / ChangePin | PIN 6 digits; backoff on failures | DataStore (hash), audit | SEC-01 |
 
+**Implementation notes (Phase 4, 2026-11-05)**
+- **UC-04 DeleteAccount is narrower than specified:** permanent delete is allowed only for an account that never had any
+  transaction, *including* an opening balance, and is not linked to a budget, goal or reconciliation. The opening-balance
+  transaction has append-only revisions (TXN-06) that reference it, so hard-deleting it would destroy audit history. Such an
+  account returns `ACCOUNT_HAS_HISTORY` and the UI offers archive (UC-03), which hides it and blocks new transactions.
+- **UC-02:** the opening balance is edited through its SYSTEM transaction (create / edit / soft-delete, each with a revision).
+  Currency can change only while the opening balance is the account's only history (`CURRENCY_LOCKED` otherwise).
+- **UC-03:** archiving an account with a non-zero balance requires an explicit acknowledgement (`BALANCE_NOT_ZERO`).
+- **UC-13:** statement balances are entered as the user sees them (liabilities: positive amount owed); the stored
+  difference is in ledger sign convention. Adjustments are BALANCE_ADJUSTMENT on the as-of date, never income or spending.
+- **UC-14:** names are unique among siblings case-insensitively; a parent can be archived only after its live subcategories.
+
 Read-side queries (balances, reports, dashboard) are **query services**, not use cases. They are read-only and run in `:data`,
 with calculations in `:domain` (`ReportCalculator`, `BudgetCalculator`, `NetWorthCalculator`).
 

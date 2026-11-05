@@ -1,6 +1,7 @@
 package ph.financewallet.data.ledger
 
 import androidx.room.withTransaction
+import ph.financewallet.data.account.CategoryService
 import ph.financewallet.data.db.FinanceDatabase
 import ph.financewallet.data.db.entity.CategoryEntity
 import ph.financewallet.data.db.entity.EntryEntity
@@ -92,28 +93,14 @@ class LedgerService(
             }
         }
 
-    /** UC-14 (minimal): income or expense category, optionally as a subcategory. */
+    /** UC-14 create; same rules as [CategoryService.create] (unique among siblings, one level). */
     suspend fun createCategory(
         name: String,
         accountClass: AccountClass,
         parentId: String? = null,
-        icon: String = "category",
-        colorArgb: Long = DEFAULT_COLOR,
-    ): DomainResult<String> =
-        db.validatedWrite {
-            run {
-                checkName(name)
-                ensure(accountClass == AccountClass.INCOME || accountClass == AccountClass.EXPENSE, "class", "CATEGORY_WRONG_CLASS")
-                if (parentId != null) {
-                    val parent = dao.ledgerAccount(parentId) ?: notFound("category", parentId)
-                    ensure(parent.accountClass == accountClass.name, "parentId", "CATEGORY_WRONG_CLASS")
-                }
-                val id = ctx.ids.newId()
-                dao.insertLedgerAccount(ledgerRow(id, accountClass, name.trim(), null, null))
-                dao.insertCategory(CategoryEntity(id, parentId, icon, colorArgb, 0, false, 1, ctx.nowMillis(), ctx.deviceId, ctx.nextHlc()))
-                id
-            }
-        }
+        icon: String = CategoryService.DEFAULT_ICON,
+        colorArgb: Long = CategoryService.DEFAULT_COLOR,
+    ): DomainResult<String> = CategoryService(db, ctx).create(name, accountClass, parentId, icon, colorArgb)
 
     /**
      * UC-05..UC-08: records a transaction built by [build]. Repeating the same [TxnHeader.idempotencyKey] returns the
@@ -404,7 +391,6 @@ class LedgerService(
 
     private companion object {
         const val SYSTEM_ID_PREFIX = "sys:"
-        const val DEFAULT_COLOR = 0xFF607D8BL
         const val MAX_NAME = 80
         const val MAX_DESCRIPTION = 200
         const val MAX_MERCHANT = 120
