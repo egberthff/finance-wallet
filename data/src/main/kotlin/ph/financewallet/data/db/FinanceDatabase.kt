@@ -32,6 +32,8 @@ import ph.financewallet.data.db.entity.TxnRevisionEntity
 abstract class FinanceDatabase : RoomDatabase() {
     abstract fun integrityDao(): IntegrityDao
 
+    abstract fun ledgerDao(): ph.financewallet.data.ledger.LedgerDao
+
     companion object {
         const val SCHEMA_VERSION: Int = 1
         const val FILE_NAME: String = "finance.db"
