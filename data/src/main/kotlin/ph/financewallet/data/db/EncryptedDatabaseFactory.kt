@@ -17,13 +17,14 @@ object EncryptedDatabaseFactory {
     @Volatile
     private var libraryLoaded = false
 
-    fun open(context: Context): FinanceDatabase {
+    /** Opens (and if needed migrates, with pre-migration backup) the encrypted database. Call off the main thread. */
+    suspend fun open(context: Context): FinanceDatabase {
         loadLibrary()
         val keyStore = DatabaseKeyStore(File(context.noBackupFilesDir, KEY_FILE), AndroidKeystoreKeyWrapper(WRAP_ALIAS))
         val key = keyStore.getOrCreateKey()
         val rawKeySpec = rawKeySpec(key)
         key.fill(0)
-        return FinanceDatabase.build(context, SupportOpenHelperFactory(rawKeySpec))
+        return DatabaseOpener(context, SupportOpenHelperFactory(rawKeySpec)).open()
     }
 
     /**

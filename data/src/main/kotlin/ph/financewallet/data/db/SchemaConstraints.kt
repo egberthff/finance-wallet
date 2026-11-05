@@ -86,24 +86,123 @@ internal object SchemaConstraints {
             Check("txn_revision", "CK_REV_NO", "NEW.revision_no < 1"),
         )
 
+    private const val ISO_DATE = "'[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+
+    private fun bool(column: String) = "NEW.$column NOT IN (0,1)"
+
+    private fun optionalRange(
+        column: String,
+        min: Int,
+        max: Int,
+    ) = "NEW.$column IS NOT NULL AND NEW.$column NOT BETWEEN $min AND $max"
+
+    /** Schema v2: reconciliation, budgets, goals, allocation ledger (docs/11-database-schema.md §3.3–3.4). */
+    private val V2_CHECKS =
+        listOf(
+            Check("reconciliation", "CK_RECON_SOURCE", enumIn("source", "MANUAL", "IMPORT")),
+            Check("reconciliation", "CK_RECON_DATE", "NEW.as_of_date NOT GLOB $ISO_DATE"),
+            Check(
+                "reconciliation",
+                "CK_RECON_DIFFERENCE",
+                "NEW.difference_minor <> NEW.statement_balance_minor - NEW.calculated_balance_minor",
+            ),
+            Check("budget", "CK_BUDGET_NAME", "length(trim(NEW.name)) NOT BETWEEN 1 AND 80"),
+            Check("budget", "CK_BUDGET_CURRENCY", "length(NEW.currency) <> 3"),
+            Check(
+                "budget",
+                "CK_BUDGET_PERIOD_KIND",
+                enumIn("period_kind", "WEEKLY", "BIWEEKLY", "EVERY_N_DAYS", "MONTHLY", "SEMI_MONTHLY", "CUSTOM_ONCE"),
+            ),
+            Check("budget", "CK_BUDGET_ANCHOR_DATE", "NEW.anchor_date NOT GLOB $ISO_DATE"),
+            Check("budget", "CK_BUDGET_EFFECTIVE_DATE", "NEW.rule_effective_from NOT GLOB $ISO_DATE"),
+            Check("budget", "CK_BUDGET_ANCHOR_DAY", optionalRange("anchor_day", 1, 31)),
+            Check("budget", "CK_BUDGET_ANCHOR_DAY2", optionalRange("anchor_day2", 1, 31)),
+            Check("budget", "CK_BUDGET_EVERY_N", optionalRange("every_n_days", 1, 366)),
+            Check("budget", "CK_BUDGET_INCOME_MODE", enumIn("income_mode", "TRACKED", "FIXED", "MANUAL")),
+            Check("budget", "CK_BUDGET_FIXED_INCOME", "NEW.income_mode = 'FIXED' AND NEW.fixed_income_minor IS NULL"),
+            Check("budget", "CK_BUDGET_ACCOUNT_FILTER", bool("account_filter")),
+            Check("budget_category", "CK_BC_MODE", enumIn("allocation_mode", "NONE", "FIXED", "PERCENT")),
+            Check("budget_category", "CK_BC_PERCENT", optionalRange("percent_bp", 0, 10000)),
+            Check("budget_category", "CK_BC_ROLLOVER", enumIn("rollover_policy", "EXPIRE", "CARRY", "SWEEP_TO_GOAL", "MANUAL")),
+            Check("budget_category", "CK_BC_CARRY_NEGATIVE", bool("carry_negative")),
+            Check("budget_category", "CK_BC_SWEEP_GOAL", "NEW.rollover_policy = 'SWEEP_TO_GOAL' AND NEW.sweep_goal_id IS NULL"),
+            Check("budget_period", "CK_PERIOD_DATES", "NEW.end_date < NEW.start_date"),
+            Check("budget_period", "CK_PERIOD_DATE_FORMAT", "NEW.start_date NOT GLOB $ISO_DATE OR NEW.end_date NOT GLOB $ISO_DATE"),
+            Check("savings_goal", "CK_GOAL_NAME", "length(trim(NEW.name)) NOT BETWEEN 1 AND 80"),
+            Check("savings_goal", "CK_GOAL_CURRENCY", "length(NEW.currency) <> 3"),
+            Check("savings_goal", "CK_GOAL_TARGET", "NEW.target_minor <= 0"),
+            Check("savings_goal", "CK_GOAL_STATUS", enumIn("status", "ACTIVE", "PAUSED", "ACHIEVED", "ARCHIVED")),
+            Check("savings_goal", "CK_GOAL_NOTES", "NEW.notes IS NOT NULL AND length(NEW.notes) > 2000"),
+            Check(
+                "allocation_group",
+                "CK_ALLOC_KIND",
+                enumIn(
+                    "kind",
+                    "FUND",
+                    "ALLOCATE",
+                    "REALLOCATE",
+                    "GOAL_CONTRIBUTE",
+                    "GOAL_WITHDRAW",
+                    "GOAL_DIRECT",
+                    "GOAL_TRANSFER",
+                    "ROLLOVER",
+                    "SWEEP",
+                ),
+            ),
+            Check("allocation_group", "CK_ALLOC_REASON", "NEW.reason IS NOT NULL AND length(NEW.reason) > 500"),
+            Check("allocation_group", "CK_ALLOC_DATE", "NEW.effective_date NOT GLOB $ISO_DATE"),
+            Check(
+                "allocation_group",
+                "CK_ALLOC_CONFIRMATION",
+                "NEW.kind IN ('GOAL_WITHDRAW','GOAL_TRANSFER') AND NEW.confirmed_at IS NULL",
+            ),
+            Check("allocation_entry", "CK_ALLOC_BUCKET", enumIn("bucket", "UNALLOCATED", "CATEGORY", "GOAL")),
+            Check("allocation_entry", "CK_ALLOC_AMOUNT_NONZERO", "NEW.amount_minor = 0"),
+            Check("allocation_entry", "CK_ALLOC_AMOUNT_INTEGER", "typeof(NEW.amount_minor) <> 'integer'"),
+            Check("allocation_entry", "CK_ALLOC_CURRENCY", "length(NEW.currency) <> 3"),
+            Check(
+                "allocation_entry",
+                "CK_ALLOC_BUCKET_SHAPE",
+                "NOT ((NEW.bucket = 'UNALLOCATED' AND NEW.budget_period_id IS NOT NULL AND NEW.category_id IS NULL " +
+                    "AND NEW.goal_id IS NULL) " +
+                    "OR (NEW.bucket = 'CATEGORY' AND NEW.budget_period_id IS NOT NULL AND NEW.category_id IS NOT NULL " +
+                    "AND NEW.goal_id IS NULL) " +
+                    "OR (NEW.bucket = 'GOAL' AND NEW.goal_id IS NOT NULL AND NEW.category_id IS NULL))",
+            ),
+        )
+
     /** Append-only tables: updates and deletes are rejected (SEC-04, TXN-06). */
     private val APPEND_ONLY_V1 = listOf("txn_revision", "audit_event")
+
+    /** Allocation entries are immutable once written; corrections are new allocation groups (SAV-04). */
+    private const val IMMUTABLE_V2 = "allocation_entry"
+
+    private fun checkTriggers(checks: List<Check>): List<String> =
+        checks.flatMap { c ->
+            listOf("INSERT", "UPDATE").map { op ->
+                "CREATE TRIGGER IF NOT EXISTS trg_${c.code.lowercase()}_${op.lowercase()} BEFORE $op ON ${c.table} " +
+                    "WHEN ${c.violation} BEGIN SELECT RAISE(ABORT, '${c.code}'); END"
+            }
+        }
 
     /** All statements needed for schema v1, in order. */
     val v1Statements: List<String> =
         buildList {
-            V1_CHECKS.forEach { c ->
-                for (op in listOf("INSERT", "UPDATE")) {
-                    val name = "trg_${c.code.lowercase()}_${op.lowercase()}"
-                    add(
-                        "CREATE TRIGGER IF NOT EXISTS $name BEFORE $op ON ${c.table} " +
-                            "WHEN ${c.violation} BEGIN SELECT RAISE(ABORT, '${c.code}'); END",
-                    )
-                }
-            }
+            addAll(checkTriggers(V1_CHECKS))
             APPEND_ONLY_V1.forEach { t ->
                 add("CREATE TRIGGER IF NOT EXISTS trg_${t}_no_update BEFORE UPDATE ON $t BEGIN SELECT RAISE(ABORT, 'APPEND_ONLY'); END")
                 add("CREATE TRIGGER IF NOT EXISTS trg_${t}_no_delete BEFORE DELETE ON $t BEGIN SELECT RAISE(ABORT, 'APPEND_ONLY'); END")
             }
         }
+
+    /** Triggers added by migration 1→2 (and created directly for new databases). */
+    val v2Statements: List<String> =
+        checkTriggers(V2_CHECKS) +
+            listOf(
+                "CREATE TRIGGER IF NOT EXISTS trg_${IMMUTABLE_V2}_no_update BEFORE UPDATE ON $IMMUTABLE_V2 " +
+                    "BEGIN SELECT RAISE(ABORT, 'IMMUTABLE'); END",
+            )
+
+    /** Every trigger statement of the current schema, for new databases. */
+    val allStatements: List<String> get() = v1Statements + v2Statements
 }

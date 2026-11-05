@@ -22,6 +22,7 @@ class IntegrityChecker(
                 "IC-2" to dao.ic2CurrencyMismatches().map { it.detail },
                 "IC-3" to dao.ic3TransactionsWithTooFewEntries().map { it.detail },
                 "IC-4" to dao.ic4DuplicateOpeningBalances().map { it.detail },
+                "IC-5" to dao.ic5UnbalancedAllocations().map { it.detail },
                 "IC-7" to dao.ic7OverRefunded().map { it.detail },
                 "IC-8" to pragmaChecks(),
             )

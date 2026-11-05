@@ -61,11 +61,11 @@ class SchemaConformanceTest {
         val reference = referenceTables()
         val exported = exportedTables()
         assertTrue("parsed too few reference tables: ${reference.keys}", reference.size >= 20)
-        assertEquals(
-            "v1 tables",
-            setOf("ledger_account", "financial_account", "category", "txn", "entry", "txn_revision", "audit_event", "app_meta"),
-            exported.keys,
-        )
+        val v1 = "ledger_account financial_account category txn entry txn_revision audit_event app_meta"
+        val v2 =
+            "reconciliation budget budget_category budget_account budget_period savings_goal goal_account " +
+                "allocation_group allocation_entry"
+        assertEquals("tables of schema v${FinanceDatabase.SCHEMA_VERSION}", "$v1 $v2".split(' ').toSet(), exported.keys)
         exported.forEach { (table, columns) ->
             val expected = reference[table] ?: error("table '$table' is not in the reference DDL")
             assertEquals("columns of '$table'", expected, columns)

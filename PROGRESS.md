@@ -16,7 +16,7 @@ _Last updated: 2026-11-05_
 |---|---|---|
 | 1. Discovery & validation | **Approved by owner (2026-11-05)** | Native Kotlin stack accepted; open-question defaults adopted |
 | 2. Architecture | **Approved by owner (2026-11-05)** | [milestone plan](docs/milestones/phase-2-architecture.md) |
-| 3. Foundation | **Complete except device-only checks** (criterion 6, SQLCipher perf); deferred by owner, follow-up next session | [milestone plan](docs/milestones/phase-3-foundation.md) |
+| 3. Foundation | **Complete except device-only checks** (criterion 6, SQLCipher perf); owner reserved phone testing for final testing (Phase 8) | [milestone plan](docs/milestones/phase-3-foundation.md) |
 | 4. Core financial engine | **In progress** (started 2026-11-05, owner: "proceed all") | [milestone plan](docs/milestones/phase-4-core-engine.md) |
 | 5–9 | Planned | — |
 
@@ -65,7 +65,7 @@ are still **Not written**.
 | 6 | On device: launch, lock, FLAG_SECURE, DB unreadable without key (AC-SEC-1/2) | **Not executed** | No Android device connected yet (Q-16) |
 | 7 | Spikes recorded (SQLCipher perf; APK impact of fastexcel/PdfBox/BouncyCastle) | **Partially met** | [docs/spikes/apk-size.md](docs/spikes/apk-size.md): baseline release 9.36 MB; BouncyCastle +31 KB; PdfBox +6.0 MB; fastexcel fails R8 → in-house XLSX reader. **SQLCipher perf needs device** |
 
-Test totals (latest full `check`): **115 executed, 115 passed, 0 failed, 0 skipped** (`:domain` 78, `:data` 24, `:app` 13).
+Test totals (latest full `check`): **127 executed, 127 passed, 0 failed, 0 skipped** (`:domain` 78, `:data` 36, `:app` 13).
 
 > **Correction (2026-11-05).** Earlier reports in this file (59 and 60 tests, "properties passed") were wrong for 4 property
 > tests: `AllocationTest` ×2, `MoneyParserFormatterTest` ×1, and `PeriodCalculatorTest` (fixed-length). They were written as
@@ -87,6 +87,7 @@ Phase 3 code exists (see above). Feature rows below reflect it.
 |---|---|---|---|---|---|---|
 | Ledger engine (domain) | TXN-01..05, 08, 12; RPT-03; NW-01; ACC-05 (calc) | 4.1–4.4 | **Implemented + tested (domain only)**: account classes, 11 transaction-type templates with validation codes, invariants I-1..I-3, calculator (balances current/pending/projected, income/spending/adjustment/opening/FX classification, spending by category, net worth) | domain/src/main/.../ledger, common | Executed–Passed: EntryTemplatesTest 15, LedgerCalculatorTest 8, DomainResultTest 4, LedgerPropertyTest (10,000 sequences / 58,387 ops) | Not yet persisted (data layer = step 4.5); allocation ledger = step 4.3 |
 | Ledger persistence & use cases | ACC-01/02, TXN-02, 05..09, UC-01, 05..10, 14 (min.) | 4.5 | **Implemented + tested (JVM/Robolectric)**: LedgerService (system accounts, create account + opening balance, create category, record/edit/delete with revisions, idempotency, refund/reversal context, dependent-edit/delete guards), SQL balances/pending/summary | data/src/main/.../ledger | Executed–Passed: LedgerServiceTest 12, incl. AC-CORE-8 (EX-10), AC-CORE-9 (fault injection at 2 checkpoints), and SQL vs domain-calculator cross-check over 300 random ops; IC checks after every test | Archive/edit account (UC-02/03/04), reconciliation (UC-13), UI pending |
+| Schema v2 migration + pre-migration backup | LOC-04, R-10 | 4.6 | **Implemented + tested (Robolectric)**: Migration 1→2 (reconciliation, budgets, periods, goals, allocation ledger + CHECK triggers), IC-5, DatabaseOpener (version probe, file backup keeping 2, post-migration IC gate with restore), `validatedWrite` (rollback on any failed check) | data/src/main/.../db | Executed–Passed: MigrationTest 2 (MigrationTestHelper validation, data kept, triggers equal fresh install, IC healthy), DatabaseOpenerTest 6, ValidatedWriteTest 4 | Backup is a raw (SQLCipher-encrypted) file copy until the Phase 7 backup format; encrypted path verified on device in Phase 8 |
 | Accounts | ACC-01..07 | 4 | In progress (create + balances done; archive/edit/reconcile/UI pending) | — | see row above | — |
 | Transactions + fast entry | TXN-01..13 | 4 | Planned | — | Not written | TXN-13 critical for adoption (R-19) |
 | Categories | CAT-01..04 | 4 | Planned | — | Not written | — |
@@ -120,6 +121,9 @@ Phase 3 code exists (see above). Feature rows below reflect it.
 | 2026-11-05 | Stack: native Kotlin + Compose, Room + SQLCipher, Long minor units, double-entry + allocation ledgers, optional Ktor backend, Gradle/JUnit5/Kotest/Maestro | ADR-0001..0005, 0007, 0008 (**Accepted** by owner) |
 | 2026-11-05 | Open-question defaults adopted as assumptions (Q-05..Q-09, Q-12, Q-13, Q-17..Q-19, Q-21) | 02-open-questions.md |
 | 2026-11-05 | Added SEMI_MONTHLY budget period (BUD-01 amendment, PH paydays) | 10-domain-model.md §5.1 |
+| 2026-11-05 | **Owner:** physical-phone checks reserved for final testing (Phase 8) | memory/PROGRESS |
+| 2026-11-05 | Fixed latent partial-commit risk: all writes go through `validatedWrite` (rolls back on a failed check) | data/db/ValidatedWrite.kt |
+| 2026-11-05 | Pre-migration backup is an interim raw copy of the encrypted DB file until the Phase 7 format exists | 11-database-schema.md Phase 4 notes |
 | 2026-11-05 | Accepted: no INTERNET permission in MVP; Argon2id chunked-GCM backup | ADR-0010, ADR-0011 (**Accepted** by owner) |
 
 ## Environment notes (2026-11-05)

@@ -22,6 +22,12 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
+
+    // MigrationTestHelper reads the exported schema JSON from test assets (Robolectric).
+    sourceSets
+        .getByName("test")
+        .assets.directories
+        .add("$projectDir/schemas")
 }
 
 kotlin {

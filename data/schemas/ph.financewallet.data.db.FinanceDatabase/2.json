@@ -1,0 +1,1887 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "f65c69c5fbf98faaad14d1212b0e040a",
+    "entities": [
+      {
+        "tableName": "ledger_account",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `class` TEXT NOT NULL, `name` TEXT NOT NULL, `currency` TEXT, `system_key` TEXT, `archived_at` INTEGER, `created_at` INTEGER NOT NULL, `version` INTEGER NOT NULL DEFAULT 1, `updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, `hlc` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountClass",
+            "columnName": "class",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "currency",
+            "columnName": "currency",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "systemKey",
+            "columnName": "system_key",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "archivedAt",
+            "columnName": "archived_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedByDevice",
+            "columnName": "updated_by_device",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hlc",
+            "columnName": "hlc",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_ledger_account_system_key",
+            "unique": true,
+            "columnNames": [
+              "system_key"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_ledger_account_system_key` ON `${TABLE_NAME}` (`system_key`)"
+          }
+        ]
+      },
+      {
+        "tableName": "financial_account",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`ledger_account_id` TEXT NOT NULL, `type` TEXT NOT NULL, `institution` TEXT, `account_number_last4` TEXT, `opening_date` TEXT NOT NULL, `include_in_net_worth` INTEGER NOT NULL DEFAULT 1, `spendable` INTEGER NOT NULL DEFAULT 1, `credit_limit_minor` INTEGER, `default_import_profile_id` TEXT, `last_imported_at` INTEGER, `reconcile_reminder_days` INTEGER, `sort_order` INTEGER NOT NULL DEFAULT 0, `version` INTEGER NOT NULL DEFAULT 1, `updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, `hlc` TEXT NOT NULL, PRIMARY KEY(`ledger_account_id`), FOREIGN KEY(`ledger_account_id`) REFERENCES `ledger_account`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "ledgerAccountId",
+            "columnName": "ledger_account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "institution",
+            "columnName": "institution",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "accountNumberLast4",
+            "columnName": "account_number_last4",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "openingDate",
+            "columnName": "opening_date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "includeInNetWorth",
+            "columnName": "include_in_net_worth",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "spendable",
+            "columnName": "spendable",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "creditLimitMinor",
+            "columnName": "credit_limit_minor",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "defaultImportProfileId",
+            "columnName": "default_import_profile_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lastImportedAt",
+            "columnName": "last_imported_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "reconcileReminderDays",
+            "columnName": "reconcile_reminder_days",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "sortOrder",
+            "columnName": "sort_order",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedByDevice",
+            "columnName": "updated_by_device",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hlc",
+            "columnName": "hlc",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "ledger_account_id"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "ledger_account",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "ledger_account_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "category",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`ledger_account_id` TEXT NOT NULL, `parent_id` TEXT, `icon` TEXT NOT NULL, `color_argb` INTEGER NOT NULL, `sort_order` INTEGER NOT NULL DEFAULT 0, `is_default_seed` INTEGER NOT NULL DEFAULT 0, `version` INTEGER NOT NULL DEFAULT 1, `updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, `hlc` TEXT NOT NULL, PRIMARY KEY(`ledger_account_id`), FOREIGN KEY(`ledger_account_id`) REFERENCES `ledger_account`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`parent_id`) REFERENCES `category`(`ledger_account_id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "ledgerAccountId",
+            "columnName": "ledger_account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "parentId",
+            "columnName": "parent_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "icon",
+            "columnName": "icon",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "colorArgb",
+            "columnName": "color_argb",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sortOrder",
+            "columnName": "sort_order",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "isDefaultSeed",
+            "columnName": "is_default_seed",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedByDevice",
+            "columnName": "updated_by_device",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hlc",
+            "columnName": "hlc",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "ledger_account_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "ix_category_parent",
+            "unique": false,
+            "columnNames": [
+              "parent_id",
+              "sort_order"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `ix_category_parent` ON `${TABLE_NAME}` (`parent_id`, `sort_order`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "ledger_account",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "ledger_account_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "category",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "parent_id"
+            ],
+            "referencedColumns": [
+              "ledger_account_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "txn",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `type` TEXT NOT NULL, `status` TEXT NOT NULL, `txn_date` TEXT NOT NULL, `occurred_at` INTEGER, `posting_date` TEXT, `description` TEXT NOT NULL DEFAULT '', `description_norm` TEXT NOT NULL DEFAULT '', `merchant` TEXT, `merchant_norm` TEXT, `notes` TEXT, `reference_no` TEXT, `source` TEXT NOT NULL, `import_batch_id` TEXT, `idempotency_key` TEXT NOT NULL, `reverses_txn_id` TEXT, `refund_of_txn_id` TEXT, `recurring_occurrence_id` TEXT, `fx_rate_display` TEXT, `conflict_state` TEXT NOT NULL DEFAULT 'NONE', `created_at` INTEGER NOT NULL, `deleted_at` INTEGER, `version` INTEGER NOT NULL DEFAULT 1, `updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, `hlc` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`reverses_txn_id`) REFERENCES `txn`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`refund_of_txn_id`) REFERENCES `txn`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "txnDate",
+            "columnName": "txn_date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "occurredAt",
+            "columnName": "occurred_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "postingDate",
+            "columnName": "posting_date",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "''"
+          },
+          {
+            "fieldPath": "descriptionNorm",
+            "columnName": "description_norm",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "''"
+          },
+          {
+            "fieldPath": "merchant",
+            "columnName": "merchant",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "merchantNorm",
+            "columnName": "merchant_norm",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "referenceNo",
+            "columnName": "reference_no",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "importBatchId",
+            "columnName": "import_batch_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "idempotencyKey",
+            "columnName": "idempotency_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reversesTxnId",
+            "columnName": "reverses_txn_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "refundOfTxnId",
+            "columnName": "refund_of_txn_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "recurringOccurrenceId",
+            "columnName": "recurring_occurrence_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "fxRateDisplay",
+            "columnName": "fx_rate_display",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "conflictState",
+            "columnName": "conflict_state",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'NONE'"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deletedAt",
+            "columnName": "deleted_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedByDevice",
+            "columnName": "updated_by_device",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hlc",
+            "columnName": "hlc",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_txn_idempotency_key",
+            "unique": true,
+            "columnNames": [
+              "idempotency_key"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_txn_idempotency_key` ON `${TABLE_NAME}` (`idempotency_key`)"
+          },
+          {
+            "name": "index_txn_reverses_txn_id",
+            "unique": true,
+            "columnNames": [
+              "reverses_txn_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_txn_reverses_txn_id` ON `${TABLE_NAME}` (`reverses_txn_id`)"
+          },
+          {
+            "name": "ix_txn_date",
+            "unique": false,
+            "columnNames": [
+              "txn_date",
+              "id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `ix_txn_date` ON `${TABLE_NAME}` (`txn_date`, `id`)"
+          },
+          {
+            "name": "ix_txn_batch",
+            "unique": false,
+            "columnNames": [
+              "import_batch_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `ix_txn_batch` ON `${TABLE_NAME}` (`import_batch_id`)"
+          },
+          {
+            "name": "ix_txn_refund_of",
+            "unique": false,
+            "columnNames": [
+              "refund_of_txn_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `ix_txn_refund_of` ON `${TABLE_NAME}` (`refund_of_txn_id`)"
+          },
+          {
+            "name": "index_txn_recurring_occurrence_id",
+            "unique": true,
+            "columnNames": [
+              "recurring_occurrence_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_txn_recurring_occurrence_id` ON `${TABLE_NAME}` (`recurring_occurrence_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "txn",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "reverses_txn_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "txn",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "refund_of_txn_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "entry",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `txn_id` TEXT NOT NULL, `line_no` INTEGER NOT NULL, `ledger_account_id` TEXT NOT NULL, `amount_minor` INTEGER NOT NULL, `currency` TEXT NOT NULL, `memo` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`txn_id`) REFERENCES `txn`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`ledger_account_id`) REFERENCES `ledger_account`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "txnId",
+            "columnName": "txn_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lineNo",
+            "columnName": "line_no",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ledgerAccountId",
+            "columnName": "ledger_account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "amountMinor",
+            "columnName": "amount_minor",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "currency",
+            "columnName": "currency",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "memo",
+            "columnName": "memo",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_entry_txn_id_line_no",
+            "unique": true,
+            "columnNames": [
+              "txn_id",
+              "line_no"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_entry_txn_id_line_no` ON `${TABLE_NAME}` (`txn_id`, `line_no`)"
+          },
+          {
+            "name": "ix_entry_account",
+            "unique": false,
+            "columnNames": [
+              "ledger_account_id",
+              "txn_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `ix_entry_account` ON `${TABLE_NAME}` (`ledger_account_id`, `txn_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "txn",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "txn_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "ledger_account",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "ledger_account_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "txn_revision",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `txn_id` TEXT NOT NULL, `revision_no` INTEGER NOT NULL, `change_kind` TEXT NOT NULL, `before_json` TEXT, `after_json` TEXT, `reason` TEXT, `device_id` TEXT NOT NULL, `created_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`txn_id`) REFERENCES `txn`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "txnId",
+            "columnName": "txn_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revisionNo",
+            "columnName": "revision_no",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "changeKind",
+            "columnName": "change_kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "beforeJson",
+            "columnName": "before_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "afterJson",
+            "columnName": "after_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "reason",
+            "columnName": "reason",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "deviceId",
+            "columnName": "device_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_txn_revision_txn_id_revision_no",
+            "unique": true,
+            "columnNames": [
+              "txn_id",
+              "revision_no"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_txn_revision_txn_id_revision_no` ON `${TABLE_NAME}` (`txn_id`, `revision_no`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "txn",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "txn_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "audit_event",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `kind` TEXT NOT NULL, `entity_type` TEXT, `entity_id` TEXT, `detail_json` TEXT, `device_id` TEXT NOT NULL, `created_at` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entityType",
+            "columnName": "entity_type",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "entityId",
+            "columnName": "entity_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "detailJson",
+            "columnName": "detail_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "deviceId",
+            "columnName": "device_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "ix_audit_time",
+            "unique": false,
+            "columnNames": [
+              "created_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `ix_audit_time` ON `${TABLE_NAME}` (`created_at`)"
+          }
+        ]
+      },
+      {
+        "tableName": "app_meta",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`key` TEXT NOT NULL, `value` TEXT NOT NULL, PRIMARY KEY(`key`))",
+        "fields": [
+          {
+            "fieldPath": "key",
+            "columnName": "key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "value",
+            "columnName": "value",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "key"
+          ]
+        }
+      },
+      {
+        "tableName": "reconciliation",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `account_id` TEXT NOT NULL, `as_of_date` TEXT NOT NULL, `statement_balance_minor` INTEGER NOT NULL, `calculated_balance_minor` INTEGER NOT NULL, `difference_minor` INTEGER NOT NULL, `adjustment_txn_id` TEXT, `source` TEXT NOT NULL, `import_batch_id` TEXT, `created_at` INTEGER NOT NULL, `version` INTEGER NOT NULL DEFAULT 1, `updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, `hlc` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`account_id`) REFERENCES `financial_account`(`ledger_account_id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`adjustment_txn_id`) REFERENCES `txn`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "asOfDate",
+            "columnName": "as_of_date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "statementBalanceMinor",
+            "columnName": "statement_balance_minor",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "calculatedBalanceMinor",
+            "columnName": "calculated_balance_minor",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "differenceMinor",
+            "columnName": "difference_minor",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "adjustmentTxnId",
+            "columnName": "adjustment_txn_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "importBatchId",
+            "columnName": "import_batch_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedByDevice",
+            "columnName": "updated_by_device",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hlc",
+            "columnName": "hlc",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "ix_recon_account",
+            "unique": false,
+            "columnNames": [
+              "account_id",
+              "as_of_date"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `ix_recon_account` ON `${TABLE_NAME}` (`account_id`, `as_of_date`)"
+          },
+          {
+            "name": "index_reconciliation_adjustment_txn_id",
+            "unique": true,
+            "columnNames": [
+              "adjustment_txn_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_reconciliation_adjustment_txn_id` ON `${TABLE_NAME}` (`adjustment_txn_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "financial_account",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "account_id"
+            ],
+            "referencedColumns": [
+              "ledger_account_id"
+            ]
+          },
+          {
+            "table": "txn",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "adjustment_txn_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "budget",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `currency` TEXT NOT NULL, `period_kind` TEXT NOT NULL, `anchor_date` TEXT NOT NULL, `anchor_day` INTEGER, `anchor_day2` INTEGER, `every_n_days` INTEGER, `custom_end_date` TEXT, `rule_effective_from` TEXT NOT NULL, `income_mode` TEXT NOT NULL, `fixed_income_minor` INTEGER, `account_filter` INTEGER NOT NULL DEFAULT 0, `archived_at` INTEGER, `created_at` INTEGER NOT NULL, `version` INTEGER NOT NULL DEFAULT 1, `updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, `hlc` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "currency",
+            "columnName": "currency",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "periodKind",
+            "columnName": "period_kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "anchorDate",
+            "columnName": "anchor_date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "anchorDay",
+            "columnName": "anchor_day",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "anchorDay2",
+            "columnName": "anchor_day2",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "everyNDays",
+            "columnName": "every_n_days",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "customEndDate",
+            "columnName": "custom_end_date",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "ruleEffectiveFrom",
+            "columnName": "rule_effective_from",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "incomeMode",
+            "columnName": "income_mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fixedIncomeMinor",
+            "columnName": "fixed_income_minor",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "accountFilter",
+            "columnName": "account_filter",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "archivedAt",
+            "columnName": "archived_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedByDevice",
+            "columnName": "updated_by_device",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hlc",
+            "columnName": "hlc",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "budget_category",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`budget_id` TEXT NOT NULL, `category_id` TEXT NOT NULL, `allocation_mode` TEXT NOT NULL, `default_amount_minor` INTEGER, `percent_bp` INTEGER, `rollover_policy` TEXT NOT NULL DEFAULT 'EXPIRE', `carry_negative` INTEGER NOT NULL DEFAULT 0, `sweep_goal_id` TEXT, `sort_order` INTEGER NOT NULL DEFAULT 0, `version` INTEGER NOT NULL DEFAULT 1, `updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, `hlc` TEXT NOT NULL, PRIMARY KEY(`budget_id`, `category_id`), FOREIGN KEY(`budget_id`) REFERENCES `budget`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`category_id`) REFERENCES `category`(`ledger_account_id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`sweep_goal_id`) REFERENCES `savings_goal`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "budgetId",
+            "columnName": "budget_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categoryId",
+            "columnName": "category_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "allocationMode",
+            "columnName": "allocation_mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "defaultAmountMinor",
+            "columnName": "default_amount_minor",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "percentBp",
+            "columnName": "percent_bp",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "rolloverPolicy",
+            "columnName": "rollover_policy",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'EXPIRE'"
+          },
+          {
+            "fieldPath": "carryNegative",
+            "columnName": "carry_negative",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "sweepGoalId",
+            "columnName": "sweep_goal_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "sortOrder",
+            "columnName": "sort_order",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedByDevice",
+            "columnName": "updated_by_device",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hlc",
+            "columnName": "hlc",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "budget_id",
+            "category_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_budget_category_category_id",
+            "unique": false,
+            "columnNames": [
+              "category_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_budget_category_category_id` ON `${TABLE_NAME}` (`category_id`)"
+          },
+          {
+            "name": "index_budget_category_sweep_goal_id",
+            "unique": false,
+            "columnNames": [
+              "sweep_goal_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_budget_category_sweep_goal_id` ON `${TABLE_NAME}` (`sweep_goal_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "budget",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "budget_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "category",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "category_id"
+            ],
+            "referencedColumns": [
+              "ledger_account_id"
+            ]
+          },
+          {
+            "table": "savings_goal",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sweep_goal_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "budget_account",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`budget_id` TEXT NOT NULL, `ledger_account_id` TEXT NOT NULL, `version` INTEGER NOT NULL DEFAULT 1, `updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, `hlc` TEXT NOT NULL, PRIMARY KEY(`budget_id`, `ledger_account_id`), FOREIGN KEY(`budget_id`) REFERENCES `budget`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`ledger_account_id`) REFERENCES `financial_account`(`ledger_account_id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "budgetId",
+            "columnName": "budget_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ledgerAccountId",
+            "columnName": "ledger_account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedByDevice",
+            "columnName": "updated_by_device",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hlc",
+            "columnName": "hlc",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "budget_id",
+            "ledger_account_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_budget_account_ledger_account_id",
+            "unique": false,
+            "columnNames": [
+              "ledger_account_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_budget_account_ledger_account_id` ON `${TABLE_NAME}` (`ledger_account_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "budget",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "budget_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "financial_account",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "ledger_account_id"
+            ],
+            "referencedColumns": [
+              "ledger_account_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "budget_period",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `budget_id` TEXT NOT NULL, `start_date` TEXT NOT NULL, `end_date` TEXT NOT NULL, `closed_at` INTEGER, `version` INTEGER NOT NULL DEFAULT 1, `updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, `hlc` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`budget_id`) REFERENCES `budget`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "budgetId",
+            "columnName": "budget_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startDate",
+            "columnName": "start_date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endDate",
+            "columnName": "end_date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "closedAt",
+            "columnName": "closed_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedByDevice",
+            "columnName": "updated_by_device",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hlc",
+            "columnName": "hlc",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_budget_period_budget_id_start_date",
+            "unique": true,
+            "columnNames": [
+              "budget_id",
+              "start_date"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_budget_period_budget_id_start_date` ON `${TABLE_NAME}` (`budget_id`, `start_date`)"
+          },
+          {
+            "name": "ix_period_lookup",
+            "unique": false,
+            "columnNames": [
+              "budget_id",
+              "end_date"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `ix_period_lookup` ON `${TABLE_NAME}` (`budget_id`, `end_date`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "budget",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "budget_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "savings_goal",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `currency` TEXT NOT NULL, `target_minor` INTEGER NOT NULL, `target_date` TEXT, `status` TEXT NOT NULL, `notes` TEXT, `icon` TEXT NOT NULL, `color_argb` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `version` INTEGER NOT NULL DEFAULT 1, `updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, `hlc` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "currency",
+            "columnName": "currency",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetMinor",
+            "columnName": "target_minor",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetDate",
+            "columnName": "target_date",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "icon",
+            "columnName": "icon",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "colorArgb",
+            "columnName": "color_argb",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedByDevice",
+            "columnName": "updated_by_device",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hlc",
+            "columnName": "hlc",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "goal_account",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`goal_id` TEXT NOT NULL, `ledger_account_id` TEXT NOT NULL, `version` INTEGER NOT NULL DEFAULT 1, `updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, `hlc` TEXT NOT NULL, PRIMARY KEY(`goal_id`, `ledger_account_id`), FOREIGN KEY(`goal_id`) REFERENCES `savings_goal`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`ledger_account_id`) REFERENCES `financial_account`(`ledger_account_id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "goalId",
+            "columnName": "goal_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ledgerAccountId",
+            "columnName": "ledger_account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedByDevice",
+            "columnName": "updated_by_device",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hlc",
+            "columnName": "hlc",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "goal_id",
+            "ledger_account_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_goal_account_ledger_account_id",
+            "unique": false,
+            "columnNames": [
+              "ledger_account_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_goal_account_ledger_account_id` ON `${TABLE_NAME}` (`ledger_account_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "savings_goal",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "goal_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "financial_account",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "ledger_account_id"
+            ],
+            "referencedColumns": [
+              "ledger_account_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "allocation_group",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `kind` TEXT NOT NULL, `effective_date` TEXT NOT NULL, `reason` TEXT, `related_txn_id` TEXT, `snapshot_json` TEXT NOT NULL, `confirmed_at` INTEGER, `idempotency_key` TEXT NOT NULL, `created_at` INTEGER NOT NULL, `deleted_at` INTEGER, `version` INTEGER NOT NULL DEFAULT 1, `updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, `hlc` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`related_txn_id`) REFERENCES `txn`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "effectiveDate",
+            "columnName": "effective_date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reason",
+            "columnName": "reason",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "relatedTxnId",
+            "columnName": "related_txn_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "snapshotJson",
+            "columnName": "snapshot_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "confirmedAt",
+            "columnName": "confirmed_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "idempotencyKey",
+            "columnName": "idempotency_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deletedAt",
+            "columnName": "deleted_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedByDevice",
+            "columnName": "updated_by_device",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hlc",
+            "columnName": "hlc",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_allocation_group_idempotency_key",
+            "unique": true,
+            "columnNames": [
+              "idempotency_key"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_allocation_group_idempotency_key` ON `${TABLE_NAME}` (`idempotency_key`)"
+          },
+          {
+            "name": "index_allocation_group_related_txn_id",
+            "unique": false,
+            "columnNames": [
+              "related_txn_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_allocation_group_related_txn_id` ON `${TABLE_NAME}` (`related_txn_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "txn",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "related_txn_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "allocation_entry",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `group_id` TEXT NOT NULL, `bucket` TEXT NOT NULL, `budget_period_id` TEXT, `category_id` TEXT, `goal_id` TEXT, `amount_minor` INTEGER NOT NULL, `currency` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`group_id`) REFERENCES `allocation_group`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`budget_period_id`) REFERENCES `budget_period`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`category_id`) REFERENCES `category`(`ledger_account_id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`goal_id`) REFERENCES `savings_goal`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "groupId",
+            "columnName": "group_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bucket",
+            "columnName": "bucket",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "budgetPeriodId",
+            "columnName": "budget_period_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "categoryId",
+            "columnName": "category_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "goalId",
+            "columnName": "goal_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "amountMinor",
+            "columnName": "amount_minor",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "currency",
+            "columnName": "currency",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "ix_alloc_period",
+            "unique": false,
+            "columnNames": [
+              "budget_period_id",
+              "bucket",
+              "category_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `ix_alloc_period` ON `${TABLE_NAME}` (`budget_period_id`, `bucket`, `category_id`)"
+          },
+          {
+            "name": "ix_alloc_goal",
+            "unique": false,
+            "columnNames": [
+              "goal_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `ix_alloc_goal` ON `${TABLE_NAME}` (`goal_id`)"
+          },
+          {
+            "name": "ix_alloc_group",
+            "unique": false,
+            "columnNames": [
+              "group_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `ix_alloc_group` ON `${TABLE_NAME}` (`group_id`)"
+          },
+          {
+            "name": "index_allocation_entry_category_id",
+            "unique": false,
+            "columnNames": [
+              "category_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_allocation_entry_category_id` ON `${TABLE_NAME}` (`category_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "allocation_group",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "group_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "budget_period",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "budget_period_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "category",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "category_id"
+            ],
+            "referencedColumns": [
+              "ledger_account_id"
+            ]
+          },
+          {
+            "table": "savings_goal",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "goal_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f65c69c5fbf98faaad14d1212b0e040a')"
+    ]
+  }
+}

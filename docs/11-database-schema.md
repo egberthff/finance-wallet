@@ -1,6 +1,6 @@
 # Database Schema, ERD & Migration Policy
 
-| Status | Phase 2 draft v1 (2026-11-05). Schema version **1** (initial) |
+| Status | Phase 2 draft v1 (2026-11-05). Implemented schema version **2** (Phase 4) |
 |---|---|
 | Engine | SQLite (SQLCipher 4.x) via Room 2.8 (ADR-0002) |
 | Semantics | [10-domain-model.md](10-domain-model.md) |
@@ -18,6 +18,24 @@
 
 The DDL below is the **reference**. Room entities must produce an equivalent schema, and Phase 3 adds a test that compares the
 Room-exported schema JSON with this document's table/column/index list.
+
+> **Implementation notes (Phase 4, schema v2, 2026-11-05)**
+> 1. **Migration 1→2** (`data/.../db/Migrations.kt`) adds `reconciliation` (§3.3) and all of §3.4: `budget`, `budget_category`,
+>    `budget_account`, `budget_period`, `savings_goal`, `goal_account`, `allocation_group`, `allocation_entry`, with their CHECK
+>    triggers. It is additive; no v1 row changes. `reconciliation.import_batch_id` gets its FK with the import tables (Phase 6).
+> 2. Room adds an index on every FK child column it would otherwise warn about (`budget_category.category_id`,
+>    `budget_category.sweep_goal_id`, `budget_account.ledger_account_id`, `goal_account.ledger_account_id`,
+>    `allocation_group.related_txn_id`, `allocation_entry.category_id`). `ix_alloc_goal` is a full index (no partial indexes in Room).
+> 3. Extra triggers beyond the reference CHECKs: `CK_BUDGET_FIXED_INCOME` (FIXED mode needs an amount), `CK_BC_SWEEP_GOAL`
+>    (SWEEP_TO_GOAL needs a goal), `CK_ALLOC_CONFIRMATION` (GOAL_WITHDRAW / GOAL_TRANSFER need `confirmed_at`, so confirmation is
+>    enforced in the database as well as the domain), `CK_RECON_DIFFERENCE` (difference = statement − calculated), ISO-date format
+>    checks, and `allocation_entry` rejects UPDATE (corrections are new groups).
+> 4. **Pre-migration backup (§6.3), interim form:** `DatabaseOpener` probes `user_version` without changing the file, and if it is
+>    older copies the database file to `noBackupFilesDir/premigration/` (last 2 kept) before Room migrates. In production the file is
+>    SQLCipher-encrypted with the Keystore-wrapped database key, so the copy is encrypted at rest. It becomes the 14-backup-format.md
+>    device-key format when that format is built (Phase 7).
+> 5. **Post-migration gate (§6.4):** after a migration `DatabaseOpener` runs IC-1..IC-8. On any failure it closes the database, puts the
+>    pre-migration copy back and throws `MigrationIntegrityException`. Tests: `MigrationTest`, `DatabaseOpenerTest`.
 
 ## 1. Conventions
 

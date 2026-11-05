@@ -9,8 +9,8 @@ data class IntegrityViolation(
 )
 
 /**
- * Integrity checks IC-1..IC-4, IC-7 (docs/11-database-schema.md §5). Each query must return zero rows.
- * IC-5 (allocations) and IC-6 (cached summaries) are added with their tables. IC-8 uses PRAGMAs, see [IntegrityChecker].
+ * Integrity checks IC-1..IC-5, IC-7 (docs/11-database-schema.md §5). Each query must return zero rows.
+ * IC-6 (cached summaries) is added with the first derived table, if one is ever needed. IC-8 uses PRAGMAs, see [IntegrityChecker].
  */
 @Dao
 interface IntegrityDao {
@@ -46,6 +46,15 @@ interface IntegrityDao {
            GROUP BY e.ledger_account_id HAVING COUNT(DISTINCT t.id) > 1""",
     )
     suspend fun ic4DuplicateOpeningBalances(): List<IntegrityViolation>
+
+    /** IC-5: two-sided allocation groups (all kinds except FUND and GOAL_DIRECT) sum to zero per currency. */
+    @Query(
+        """SELECT g.id || ' ' || g.kind || ' ' || e.currency || ' sum=' || SUM(e.amount_minor) AS detail
+           FROM allocation_group g JOIN allocation_entry e ON e.group_id = g.id
+           WHERE g.kind NOT IN ('FUND','GOAL_DIRECT')
+           GROUP BY g.id, e.currency HAVING SUM(e.amount_minor) <> 0""",
+    )
+    suspend fun ic5UnbalancedAllocations(): List<IntegrityViolation>
 
     /** IC-7: live refunds linked to an expense never exceed the original's spending amount. */
     @Query(
