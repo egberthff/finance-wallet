@@ -7,10 +7,10 @@
 
 | Tool | Version | Why |
 |---|---|---|
-| JDK | Temurin **21** LTS (21.0.13+9 used) | Runs Gradle and AGP. `:domain` compiles to JVM 17 bytecode via toolchains (AGP 9.5 needs JDK ≥ 17) |
+| JDK | Temurin **21** LTS (21.0.13+9 used) | Runs Gradle and AGP. All modules target Java 17 bytecode/API (`-Xjdk-release=17` in `:domain`); AGP 9.5 needs JDK ≥ 17 |
 | Gradle | via wrapper (`gradlew`), 9.8.2 | AGP 9.5 needs Gradle ≥ 9.6.0 |
 | Android SDK command-line tools | `commandlinetools-win-15859902` | `sdkmanager` for platform + build tools |
-| Android SDK packages | `platform-tools`, `platforms;android-36`, `build-tools;36.0.0` | compileSdk / AGP 9.5 minimum build tools |
+| Android SDK packages | `platform-tools`, `platforms;android-37.0`, `build-tools;36.0.0` | compileSdk 37 (current AndroidX Navigation/Compose require ≥ 37); targetSdk stays 36; AGP 9.5 minimum build tools |
 | Git | ≥ 2.40 | — |
 
 An emulator is **not** required (or recommended on 8 GB RAM machines). Use a physical device with USB debugging.
@@ -41,10 +41,10 @@ PATH            += %JAVA_HOME%\bin;%ANDROID_HOME%\platform-tools
 ```
 Install SDK packages and accept licenses (review them):
 ```
-sdkmanager --sdk_root=%ANDROID_HOME% "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+sdkmanager --sdk_root=%ANDROID_HOME% "platform-tools" "platforms;android-37.0" "build-tools;36.0.0"
 sdkmanager --sdk_root=%ANDROID_HOME% --licenses
 ```
-Create `local.properties` in the repo root (git-ignored): `sdk.dir=C\:\\Users\\<you>\\dev\\android-sdk`.
+Create `local.properties` in the repo root (git-ignored) using **forward slashes**: `sdk.dir=C:/Users/<you>/dev/android-sdk` (unescaped backslashes are silently dropped by the properties format).
 
 ## 3. Build & verify
 ```

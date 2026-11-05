@@ -52,9 +52,29 @@ Design-validation evidence (throwaway scripts, not product tests): the period an
 EX-1..4, EX-11, EX-12, EX-16, and gave 0 contiguity/containment violations across 31 anchor days × 10 years. Phase 4 Kotlin tests
 are still **Not written**.
 
+## Phase 3 progress (2026-11-05): evidence from `gradlew check assembleDebug` on the dev machine
+
+| # | Acceptance criterion ([plan](docs/milestones/phase-3-foundation.md)) | Status | Evidence |
+|---|---|---|---|
+| 1 | `gradlew build/check` passes: compile, unit tests, static analysis, Lint | **Partially met** | `check assembleDebug` BUILD SUCCESSFUL; all Kotlin compiled with warnings-as-errors; Lint: 0 errors, 2 accepted warnings (OldTargetApi: targetSdk 36 deliberate; MissingApplicationIcon: icon pending design). **detekt and ktlint not yet integrated** |
+| 2 | `:domain` tests incl. EX-1..4, 11..14, 16 + properties; coverage ≥ 95 % | **Met** | 35 tests executed, 35 passed; Kover line coverage 100 % (koverVerify passed) |
+| 3 | Money-safety rule fails a bad fixture, passes clean code | **Met** | `moneySafetySelfTest`: 7 violations detected; `moneySafetyCleanFixture` and `moneySafety` (domain/data/importers) passed |
+| 4 | Room schema v1 exported; IC checks run in Robolectric | **Partially met** | `data/schemas/.../1.json` exported; 8 Robolectric DB tests passed (triggers, append-only, FK, unique, IC-1/2/3/4/7). **Automated comparison test vs reference table list not written** |
+| 5 | Debug APK builds; merged manifest has no INTERNET | **Met** | `app-debug.apk` built (21.5 MB, debug/unminified); `checkDebugNoNetworkPermission` and `checkReleaseNoNetworkPermission` passed |
+| 6 | On device: launch, lock, FLAG_SECURE, DB unreadable without key (AC-SEC-1/2) | **Not executed** | No Android device connected yet (Q-16) |
+| 7 | Spikes recorded (SQLCipher perf; APK impact of fastexcel/PdfBox/BouncyCastle) | **Not started** | — |
+
+Test totals: **59 executed, 59 passed, 0 failed, 0 skipped** (`:domain` 35, `:data` 11, `:app` 13).
+Not covered by automated tests yet: Compose UI (LockScreen, navigation), `AndroidKeystoreKeyWrapper` and SQLCipher encryption (device-only), and BiometricPrompt.
+
+Known issues:
+- A Gradle deprecation warning (`Configuration.setVisible`) originates in a third-party plugin, not in project build scripts. Harmless until Gradle 11.
+- Robolectric needs `--add-exports java.base/jdk.internal.access` on JDK 21 (test JVM only).
+- The CI workflow is written but has never run (no remote).
+
 ## Feature matrix
 
-No application code exists yet. **No tests have been written or executed.**
+Phase 3 code exists (see above). Feature rows below reflect it.
 
 | Req group | Requirements | Phase | Impl. status | Files | Tests | Issues / limitations |
 |---|---|---|---|---|---|---|
@@ -72,13 +92,13 @@ No application code exists yet. **No tests have been written or executed.**
 | PDF import | IMP-03, IMP-08 | 6 | Planned | — | Not written | Verified layouts only; PdfBox-Android fit unproven (R-21) |
 | Direct integrations | INT-01, 03, 04, 05 | — | **Out of scope** | — | — | ADR-0006 |
 | Integration constraints | INT-02, INT-06 | all | In force (policy) | — | n/a | — |
-| Local-first & encrypted DB | LOC-01..04 | 3 | Planned | — | Not written | — |
+| Local-first & encrypted DB | LOC-01..04 | 3 | **In progress**: schema v1, triggers, integrity checks, SQLCipher factory, Keystore-wrapped key implemented | data/src/main/... | Executed–Passed (11, JVM/Robolectric); encryption on device **Not executed** | Pre-migration backup not yet implemented (needs the first migration and the backup format) |
 | Local backup | BAK-01 | 5–6 (MVP) | Planned | — | Not written | — |
 | Cloud backup / sync | BAK-02, SYNC-01..02 | 7 | Planned | — | Not written | Optional; R-04 |
-| Security | SEC-01..05 | 3+ | Planned | — | Not written | — |
+| Security | SEC-01..05 | 3+ | **In progress**: app lock (PIN PBKDF2 210k + Keystore-wrapped hash, backoff, biometric, auto-lock 60 s), FLAG_SECURE, no-network manifest check, backup exclusion | app/src/main/.../security, AndroidManifest.xml | Executed–Passed (13 JVM); on-device **Not executed** | Biometric opt-out setting pending |
 | Privacy | PRIV-01..03 | 3, 9 | Planned | — | Not written | Legal review required (R-07) |
 | AI assistant | AI-01..04 | 7 | Planned | — | Not written | Q-10 |
-| UX / design system | UX-01..06 | 3–5 | Planned | — | Not written | — |
+| UX / design system | UX-01..06 | 3–5 | **In progress**: theme tokens (light/dark), state components, bottom navigation shell; money formatter (UX-06) in domain | app/src/main/.../ui | Formatter tests passed; UI tests Not written | Icons and app icon pending design; sections show honest "not available yet" states |
 | iOS | — | — | **Out of scope** | — | — | ADR-0009 |
 
 ## Decision log
@@ -95,7 +115,7 @@ No application code exists yet. **No tests have been written or executed.**
 
 ## Environment notes (2026-11-05)
 Windows 10, Node 22.12 / npm 10.9, Python 3.13, Git 2.47. **Not installed:** JDK, Android SDK, Docker, PostgreSQL, gh.
-8 GB RAM; 26 GB free disk. Git repo has no commits yet.
+8 GB RAM; 26 GB free disk. Installed (2026-11-05): JDK 21.0.13, Gradle 9.8.2, Android SDK (platform-tools, android-36, android-37.0, build-tools 36.0.0) under %USERPROFILE%\dev. Disk free after install ≈ 22 GB.
 
 | 2026-11-05 | Owner approved Phase 2, toolchain install (JDK + Android SDK), first commit on `main`; owner to provide test device and statement samples | — |
 | 2026-11-05 | Phase 3: Room CHECK constraints realised as abort triggers; schema v1 limited to core ledger tables (others via migrations) | 11-database-schema.md implementation notes |

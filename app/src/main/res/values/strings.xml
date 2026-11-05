@@ -26,5 +26,4 @@
     <string name="lock_biometric_negative">Use PIN</string>
     <string name="lock_delete">Delete</string>
     <string name="lock_digit_entered">%1$d of 6 digits entered</string>
-    <string name="loading">Loading</string>
 </resources>

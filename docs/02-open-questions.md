@@ -27,6 +27,7 @@ is recorded as an assumption. **Blocking** questions stop the named phase until 
 | Q-18 | "Delete my data" also deletes cloud backups immediately? | PRIV-01 | Yes | No |
 | Q-19 | Default branch name (`master` locally, `main` named as main)? | Workflow | Use `main` at first commit | No |
 | Q-20 | May the development machine get a JDK 17+ and the Android SDK installed (~10–15 GB; 26 GB free)? | Native Android cannot be built or tested otherwise | Install JDK first (domain tests); Android SDK command-line tools + one platform, no emulator image | **Phase 3** |
+| Q-22 | Final app name and Android application id (currently placeholder `ph.financewallet.app`, name "Finance Wallet")? | The application id **cannot change after the first Play upload** | Keep placeholder for development | **Phase 9 (before first upload)** |
 | Q-21 | Keep imported statement files as attachments (encrypted) or discard after import? | Storage, privacy | Discard by default; optional "keep file with this import" | No |
 
 ## Closed

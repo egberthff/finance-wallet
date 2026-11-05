@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "ph.financewallet.app"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         // Placeholder application id: must be confirmed by the owner before the first Play upload (Q-22).
