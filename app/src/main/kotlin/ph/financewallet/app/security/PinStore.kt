@@ -1,16 +1,19 @@
 package ph.financewallet.app.security
 
+import ph.financewallet.data.security.KeyWrapper
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
-import ph.financewallet.data.security.KeyWrapper
 
 /**
  * Persists the PIN record (wrapped with a Keystore key, so a copied file cannot be brute-forced offline)
  * and the lockout state in app-private no-backup storage.
  */
-class PinStore(private val dir: File, private val wrapper: KeyWrapper) {
+class PinStore(
+    private val dir: File,
+    private val wrapper: KeyWrapper,
+) {
     private val pinFile get() = File(dir, "pin.enc")
     private val lockoutFile get() = File(dir, "pin.lockout")
 
@@ -29,7 +32,10 @@ class PinStore(private val dir: File, private val wrapper: KeyWrapper) {
     fun saveLockout(state: LockoutState) =
         writeAtomically(lockoutFile, "${state.consecutiveFailures},${state.lockedUntilMillis}".toByteArray())
 
-    private fun writeAtomically(target: File, bytes: ByteArray) {
+    private fun writeAtomically(
+        target: File,
+        bytes: ByteArray,
+    ) {
         dir.mkdirs()
         val tmp = File(dir, target.name + ".tmp")
         tmp.outputStream().use { out ->

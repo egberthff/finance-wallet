@@ -3,12 +3,17 @@ package ph.financewallet.app.security
 /** UI-facing lock state (SEC-01). */
 sealed interface LockState {
     /** No PIN yet: user must create one. [mismatch] = the previous confirmation did not match. */
-    data class NeedsSetup(val mismatch: Boolean = false) : LockState
+    data class NeedsSetup(
+        val mismatch: Boolean = false,
+    ) : LockState
 
     /** First PIN entered during setup; waiting for confirmation. */
     data object ConfirmSetup : LockState
 
-    data class Locked(val wrongPin: Boolean = false, val lockedUntilMillis: Long = 0L) : LockState
+    data class Locked(
+        val wrongPin: Boolean = false,
+        val lockedUntilMillis: Long = 0L,
+    ) : LockState
 
     data object Unlocked : LockState
 }
@@ -36,16 +41,26 @@ class AppLockController(
     @Synchronized
     fun submitPin(pin: CharArray): LockState {
         try {
-            state = when (val s = state) {
-                is LockState.NeedsSetup -> {
-                    if (!PinHasher.isValidPin(pin)) return s
-                    pendingPin = pin.copyOf()
-                    LockState.ConfirmSetup
+            state =
+                when (val s = state) {
+                    is LockState.NeedsSetup -> {
+                        if (!PinHasher.isValidPin(pin)) return s
+                        pendingPin = pin.copyOf()
+                        LockState.ConfirmSetup
+                    }
+
+                    LockState.ConfirmSetup -> {
+                        confirmSetup(pin)
+                    }
+
+                    is LockState.Locked -> {
+                        unlock(pin, s)
+                    }
+
+                    LockState.Unlocked -> {
+                        s
+                    }
                 }
-                LockState.ConfirmSetup -> confirmSetup(pin)
-                is LockState.Locked -> unlock(pin, s)
-                LockState.Unlocked -> s
-            }
             return state
         } finally {
             pin.fill('\u0000')
@@ -63,7 +78,10 @@ class AppLockController(
         return LockState.Unlocked
     }
 
-    private fun unlock(pin: CharArray, current: LockState.Locked): LockState {
+    private fun unlock(
+        pin: CharArray,
+        current: LockState.Locked,
+    ): LockState {
         val lockout = store.loadLockout()
         val t = now()
         if (LockoutPolicy.isLocked(lockout, t)) return current.copy(lockedUntilMillis = lockout.lockedUntilMillis)

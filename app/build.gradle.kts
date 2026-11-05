@@ -71,8 +71,9 @@ abstract class CheckNoNetworkPermission : DefaultTask() {
     @TaskAction
     fun check() {
         val text = mergedManifest.get().asFile.readText()
-        val forbidden = listOf("android.permission.INTERNET", "android.permission.ACCESS_NETWORK_STATE")
-            .filter { text.contains("\"$it\"") }
+        val forbidden =
+            listOf("android.permission.INTERNET", "android.permission.ACCESS_NETWORK_STATE")
+                .filter { text.contains("\"$it\"") }
         if (forbidden.isNotEmpty()) {
             throw GradleException("ADR-0010 violated: merged manifest requests ${forbidden.joinToString()}")
         }
@@ -83,9 +84,10 @@ abstract class CheckNoNetworkPermission : DefaultTask() {
 androidComponents {
     onVariants { variant ->
         val name = variant.name.replaceFirstChar { it.uppercase() }
-        val checkTask = tasks.register<CheckNoNetworkPermission>("check${name}NoNetworkPermission") {
-            mergedManifest.set(variant.artifacts.get(SingleArtifact.MERGED_MANIFEST))
-        }
+        val checkTask =
+            tasks.register<CheckNoNetworkPermission>("check${name}NoNetworkPermission") {
+                mergedManifest.set(variant.artifacts.get(SingleArtifact.MERGED_MANIFEST))
+            }
         tasks.named("check").configure { dependsOn(checkTask) }
     }
 }

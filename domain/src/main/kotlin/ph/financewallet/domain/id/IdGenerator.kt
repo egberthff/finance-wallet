@@ -41,9 +41,16 @@ public class UuidV7Generator(
         return format(msb, lsb)
     }
 
-    private fun format(msb: Long, lsb: Long): String {
+    // Bit positions and group offsets are defined by RFC 9562; naming each would obscure the layout.
+    @Suppress("MagicNumber")
+    private fun format(
+        msb: Long,
+        lsb: Long,
+    ): String {
         val hex = String.format("%016x%016x", msb, lsb)
-        return "${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}"
+        // RFC 9562 textual form: 8-4-4-4-12 hex digit groups.
+        val groups = listOf(0..7, 8..11, 12..15, 16..19, 20..31)
+        return groups.joinToString("-") { hex.substring(it) }
     }
 
     private companion object {

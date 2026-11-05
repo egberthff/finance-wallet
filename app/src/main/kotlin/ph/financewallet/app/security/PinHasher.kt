@@ -5,8 +5,18 @@ import java.security.SecureRandom
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 
-/** A salted PIN hash. Stored only in Keystore-wrapped form ([PinStore]). */
-class PinRecord(val salt: ByteArray, val hash: ByteArray, val iterations: Int) {
+/**
+ * A salted PIN hash. Stored only in Keystore-wrapped form ([PinStore]).
+ *
+ * Binary layout v1: [0]=format, [1]=salt length, [2]=hash length, [3..6]=iterations (big-endian), then salt, then hash.
+ * MagicNumber is suppressed because the byte offsets and shifts below are that documented layout.
+ */
+@Suppress("MagicNumber")
+class PinRecord(
+    val salt: ByteArray,
+    val hash: ByteArray,
+    val iterations: Int,
+) {
     fun encode(): ByteArray {
         require(salt.size <= Byte.MAX_VALUE && hash.size <= Byte.MAX_VALUE)
         return byteArrayOf(FORMAT_V1, salt.size.toByte(), hash.size.toByte()) +
@@ -26,9 +36,12 @@ class PinRecord(val salt: ByteArray, val hash: ByteArray, val iterations: Int) {
         }
 
         private fun intToBytes(v: Int) = byteArrayOf((v ushr 24).toByte(), (v ushr 16).toByte(), (v ushr 8).toByte(), v.toByte())
-        private fun bytesToInt(b: ByteArray, o: Int) =
-            ((b[o].toInt() and 0xFF) shl 24) or ((b[o + 1].toInt() and 0xFF) shl 16) or
-                ((b[o + 2].toInt() and 0xFF) shl 8) or (b[o + 3].toInt() and 0xFF)
+
+        private fun bytesToInt(
+            b: ByteArray,
+            o: Int,
+        ) = ((b[o].toInt() and 0xFF) shl 24) or ((b[o + 1].toInt() and 0xFF) shl 16) or
+            ((b[o + 2].toInt() and 0xFF) shl 8) or (b[o + 3].toInt() and 0xFF)
     }
 }
 
@@ -46,12 +59,19 @@ class PinHasher(
         return PinRecord(salt, derive(pin, salt, iterations), iterations)
     }
 
-    fun verify(pin: CharArray, record: PinRecord): Boolean {
+    fun verify(
+        pin: CharArray,
+        record: PinRecord,
+    ): Boolean {
         if (!isValidPin(pin)) return false
         return MessageDigest.isEqual(derive(pin, record.salt, record.iterations), record.hash)
     }
 
-    private fun derive(pin: CharArray, salt: ByteArray, rounds: Int): ByteArray {
+    private fun derive(
+        pin: CharArray,
+        salt: ByteArray,
+        rounds: Int,
+    ): ByteArray {
         val spec = PBEKeySpec(pin, salt, rounds, HASH_BITS)
         try {
             return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded

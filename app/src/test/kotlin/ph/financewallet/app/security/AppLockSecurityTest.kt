@@ -1,6 +1,5 @@
 package ph.financewallet.app.security
 
-import java.nio.file.Files
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -8,6 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import ph.financewallet.data.security.KeyWrapper
+import java.nio.file.Files
 
 class AppLockSecurityTest {
     // Low iteration count only to keep tests fast; production default is verified separately.
@@ -72,10 +72,12 @@ class AppLockSecurityTest {
 
     @Test
     fun `PIN store persists only wrapped data and survives overwrite`() {
-        val wrapper = object : KeyWrapper {
-            override fun wrap(plaintext: ByteArray) = plaintext.reversedArray() + 0x7F
-            override fun unwrap(wrapped: ByteArray) = wrapped.copyOf(wrapped.size - 1).reversedArray()
-        }
+        val wrapper =
+            object : KeyWrapper {
+                override fun wrap(plaintext: ByteArray) = plaintext.reversedArray() + 0x7F
+
+                override fun unwrap(wrapped: ByteArray) = wrapped.copyOf(wrapped.size - 1).reversedArray()
+            }
         val dir = Files.createTempDirectory("pinstore").toFile()
         val store = PinStore(dir, wrapper)
         assertFalse(store.hasPin())

@@ -1,8 +1,10 @@
 package ph.financewallet.domain.money
 
 /** Thrown when two [Money] values with different currencies are combined. A programming error, not a user error. */
-public class CurrencyMismatchException(left: CurrencyCode, right: CurrencyCode) :
-    IllegalArgumentException("Currency mismatch: $left vs $right")
+public class CurrencyMismatchException(
+    left: CurrencyCode,
+    right: CurrencyCode,
+) : IllegalArgumentException("Currency mismatch: $left vs $right")
 
 /**
  * An exact monetary amount in integer minor units (ADR-0003).
@@ -10,8 +12,10 @@ public class CurrencyMismatchException(left: CurrencyCode, right: CurrencyCode) 
  * All arithmetic is overflow-checked ([ArithmeticException] on overflow). There is intentionally no
  * multiplication or division by fractional values; use [Allocation.split] or [RateMath].
  */
-public data class Money(public val minor: Long, public val currency: CurrencyCode) : Comparable<Money> {
-
+public data class Money(
+    public val minor: Long,
+    public val currency: CurrencyCode,
+) : Comparable<Money> {
     public operator fun plus(other: Money): Money {
         requireSameCurrency(other)
         return Money(Math.addExact(minor, other.minor), currency)
@@ -46,7 +50,9 @@ public data class Money(public val minor: Long, public val currency: CurrencyCod
         public fun zero(currency: CurrencyCode): Money = Money(0L, currency)
 
         /** Sums amounts of one currency. Returns zero of [currency] for an empty list. */
-        public fun sum(amounts: Iterable<Money>, currency: CurrencyCode): Money =
-            amounts.fold(zero(currency)) { acc, m -> acc + m }
+        public fun sum(
+            amounts: Iterable<Money>,
+            currency: CurrencyCode,
+        ): Money = amounts.fold(zero(currency)) { acc, m -> acc + m }
     }
 }

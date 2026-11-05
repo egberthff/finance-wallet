@@ -1,6 +1,5 @@
 package ph.financewallet.app.ui.navigation
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.NavigationBar
@@ -18,15 +17,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import ph.financewallet.app.R
 import ph.financewallet.app.ui.components.EmptyState
-
-/** Top-level destinations (PRD UX-02). Feature screens replace the empty states from Phase 4 on. */
-enum class TopLevel(val route: String, @param:StringRes val label: Int) {
-    HOME("home", R.string.nav_home),
-    TRANSACTIONS("transactions", R.string.nav_transactions),
-    BUDGETS("budgets", R.string.nav_budgets),
-    ACCOUNTS("accounts", R.string.nav_accounts),
-    MORE("more", R.string.nav_more),
-}
 
 @Composable
 fun AppNavigation() {

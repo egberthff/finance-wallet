@@ -12,8 +12,13 @@ public enum class AmountError {
 }
 
 public sealed interface AmountParseResult {
-    public data class Ok(val money: Money) : AmountParseResult
-    public data class Invalid(val error: AmountError) : AmountParseResult
+    public data class Ok(
+        val money: Money,
+    ) : AmountParseResult
+
+    public data class Invalid(
+        val error: AmountError,
+    ) : AmountParseResult
 }
 
 /**
@@ -29,7 +34,13 @@ public object MoneyParser {
     /** Upper bound for user-entered amounts: 1 trillion major units, far below Long overflow. */
     private val MAX_MAJOR = BigDecimal("1000000000000")
 
-    public fun parse(text: String, currency: CurrencyCode, allowNegative: Boolean = false): AmountParseResult {
+    // Each early return is a distinct, user-visible rejection reason (AmountError); a single exit would obscure them.
+    @Suppress("ReturnCount")
+    public fun parse(
+        text: String,
+        currency: CurrencyCode,
+        allowNegative: Boolean = false,
+    ): AmountParseResult {
         var s = text.trim()
         if (s.isEmpty()) return AmountParseResult.Invalid(AmountError.EMPTY)
 
@@ -41,11 +52,12 @@ public object MoneyParser {
         s = s.removePrefix("₱").removePrefix(currency.code).trim()
         if (s.isEmpty()) return AmountParseResult.Invalid(AmountError.INVALID_FORMAT)
 
-        val digits = when {
-            GROUPED.matches(s) -> s.replace(",", "")
-            PLAIN.matches(s) -> s
-            else -> return AmountParseResult.Invalid(AmountError.INVALID_FORMAT)
-        }
+        val digits =
+            when {
+                GROUPED.matches(s) -> s.replace(",", "")
+                PLAIN.matches(s) -> s
+                else -> return AmountParseResult.Invalid(AmountError.INVALID_FORMAT)
+            }
         val value = BigDecimal(digits)
         if (value.scale() > currency.minorDigits) {
             return AmountParseResult.Invalid(AmountError.TOO_MANY_DECIMALS)

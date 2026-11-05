@@ -1,18 +1,21 @@
 package ph.financewallet.data.security
 
-import java.io.File
-import java.nio.file.Files
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import ph.financewallet.data.db.EncryptedDatabaseFactory
+import java.io.File
+import java.nio.file.Files
 
 class DatabaseKeyStoreTest {
     /** Test double: XOR "wrapping" that is reversible and detectably wrong when [broken] is set. */
-    private class FakeWrapper(var broken: Boolean = false) : KeyWrapper {
+    private class FakeWrapper(
+        var broken: Boolean = false,
+    ) : KeyWrapper {
         override fun wrap(plaintext: ByteArray) = plaintext.map { (it.toInt() xor 0x5A).toByte() }.toByteArray()
+
         override fun unwrap(wrapped: ByteArray): ByteArray {
             if (broken) throw javax.crypto.AEADBadTagException("tag mismatch")
             return wrapped.map { (it.toInt() xor 0x5A).toByte() }.toByteArray()

@@ -22,7 +22,10 @@ import ph.financewallet.app.ui.theme.LocalSpacing
  */
 
 @Composable
-fun LoadingState(label: String, modifier: Modifier = Modifier) {
+fun LoadingState(
+    label: String,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier.fillMaxSize().semantics { contentDescription = label },
         verticalArrangement = Arrangement.Center,
@@ -33,17 +36,35 @@ fun LoadingState(label: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun EmptyState(title: String, message: String, modifier: Modifier = Modifier, actionLabel: String? = null, onAction: (() -> Unit)? = null) {
+fun EmptyState(
+    title: String,
+    message: String,
+    modifier: Modifier = Modifier,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+) {
     MessageState(title, message, modifier, actionLabel, onAction)
 }
 
 @Composable
-fun ErrorState(title: String, message: String, modifier: Modifier = Modifier, retryLabel: String? = null, onRetry: (() -> Unit)? = null) {
+fun ErrorState(
+    title: String,
+    message: String,
+    modifier: Modifier = Modifier,
+    retryLabel: String? = null,
+    onRetry: (() -> Unit)? = null,
+) {
     MessageState(title, message, modifier, retryLabel, onRetry)
 }
 
 @Composable
-private fun MessageState(title: String, message: String, modifier: Modifier, actionLabel: String?, onAction: (() -> Unit)?) {
+private fun MessageState(
+    title: String,
+    message: String,
+    modifier: Modifier,
+    actionLabel: String?,
+    onAction: (() -> Unit)?,
+) {
     val spacing = LocalSpacing.current
     Column(
         modifier.fillMaxSize().padding(spacing.lg),
@@ -51,7 +72,12 @@ private fun MessageState(title: String, message: String, modifier: Modifier, act
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(title, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
-        Text(message, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            message,
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         if (actionLabel != null && onAction != null) {
             Button(onClick = onAction) { Text(actionLabel) }
         }

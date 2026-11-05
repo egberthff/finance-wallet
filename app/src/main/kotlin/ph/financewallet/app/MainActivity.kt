@@ -78,17 +78,19 @@ class MainActivity : FragmentActivity() {
 
     private fun showBiometricPrompt() {
         if (!biometricAvailable()) return
-        val prompt = BiometricPrompt(
-            this,
-            ContextCompat.getMainExecutor(this),
-            object : BiometricPrompt.AuthenticationCallback() {
-                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                    lockState = lock.onBiometricSuccess()
-                }
-            },
-        )
+        val prompt =
+            BiometricPrompt(
+                this,
+                ContextCompat.getMainExecutor(this),
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                        lockState = lock.onBiometricSuccess()
+                    }
+                },
+            )
         prompt.authenticate(
-            BiometricPrompt.PromptInfo.Builder()
+            BiometricPrompt.PromptInfo
+                .Builder()
                 .setTitle(getString(R.string.lock_biometric_title))
                 .setNegativeButtonText(getString(R.string.lock_biometric_negative))
                 .setAllowedAuthenticators(BIOMETRIC_STRONG)

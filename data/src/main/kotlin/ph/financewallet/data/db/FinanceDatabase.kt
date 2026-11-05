@@ -42,12 +42,17 @@ abstract class FinanceDatabase : RoomDatabase() {
          *
          * Destructive migration fallback is deliberately never enabled (docs/11-database-schema.md §6).
          */
-        fun build(context: Context, openHelperFactory: SupportSQLiteOpenHelper.Factory?, inMemory: Boolean = false): FinanceDatabase {
-            val builder = if (inMemory) {
-                Room.inMemoryDatabaseBuilder(context, FinanceDatabase::class.java)
-            } else {
-                Room.databaseBuilder(context, FinanceDatabase::class.java, FILE_NAME)
-            }
+        fun build(
+            context: Context,
+            openHelperFactory: SupportSQLiteOpenHelper.Factory?,
+            inMemory: Boolean = false,
+        ): FinanceDatabase {
+            val builder =
+                if (inMemory) {
+                    Room.inMemoryDatabaseBuilder(context, FinanceDatabase::class.java)
+                } else {
+                    Room.databaseBuilder(context, FinanceDatabase::class.java, FILE_NAME)
+                }
             if (openHelperFactory != null) builder.openHelperFactory(openHelperFactory)
             return builder
                 .addCallback(SchemaCallback)

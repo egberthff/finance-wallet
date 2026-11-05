@@ -1,0 +1,21 @@
+# detekt configuration: builds upon the default rule set. Every deviation below states its reason.
+# Local @Suppress annotations must carry a comment explaining why (code review rule).
+
+style:
+  MaxLineLength:
+    # Aligned with ktlint (.editorconfig max_line_length = 140) so the two tools never disagree.
+    maxLineLength: 140
+  ReturnCount:
+    # Early-return guard clauses are the clearest form for validation code.
+    excludeGuardClauses: true
+    max: 3
+
+naming:
+  FunctionNaming:
+    # Jetpack Compose convention: @Composable functions are PascalCase.
+    ignoreAnnotated: ['Composable']
+
+complexity:
+  LongParameterList:
+    # Room entities mirror table columns 1:1 (docs/11-database-schema.md); splitting them would break that mapping.
+    ignoreAnnotated: ['Entity']

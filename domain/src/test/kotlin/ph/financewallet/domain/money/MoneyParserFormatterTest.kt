@@ -10,11 +10,17 @@ import org.junit.jupiter.api.Test
 class MoneyParserFormatterTest {
     private val php = CurrencyCode.PHP
 
-    private fun ok(text: String, minor: Long, allowNegative: Boolean = false) =
-        assertEquals(AmountParseResult.Ok(Money(minor, php)), MoneyParser.parse(text, php, allowNegative), "input '$text'")
+    private fun ok(
+        text: String,
+        minor: Long,
+        allowNegative: Boolean = false,
+    ) = assertEquals(AmountParseResult.Ok(Money(minor, php)), MoneyParser.parse(text, php, allowNegative), "input '$text'")
 
-    private fun bad(text: String, error: AmountError, currency: CurrencyCode = php) =
-        assertEquals(AmountParseResult.Invalid(error), MoneyParser.parse(text, currency), "input '$text'")
+    private fun bad(
+        text: String,
+        error: AmountError,
+        currency: CurrencyCode = php,
+    ) = assertEquals(AmountParseResult.Invalid(error), MoneyParser.parse(text, currency), "input '$text'")
 
     @Test
     fun `accepts en-PH amount formats`() {
@@ -75,10 +81,11 @@ class MoneyParserFormatterTest {
     }
 
     @Test
-    fun `property - format then parse round-trips`() = runBlocking {
-        checkAll(3_000, Arb.long(-99_999_999_999_999L..99_999_999_999_999L)) { minor ->
-            val text = MoneyFormatter.format(Money(minor, php)).replace("−", "-")
-            assertEquals(AmountParseResult.Ok(Money(minor, php)), MoneyParser.parse(text, php, allowNegative = true))
+    fun `property - format then parse round-trips`() =
+        runBlocking {
+            checkAll(3_000, Arb.long(-99_999_999_999_999L..99_999_999_999_999L)) { minor ->
+                val text = MoneyFormatter.format(Money(minor, php)).replace("−", "-")
+                assertEquals(AmountParseResult.Ok(Money(minor, php)), MoneyParser.parse(text, php, allowNegative = true))
+            }
         }
-    }
 }

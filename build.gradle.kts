@@ -6,6 +6,23 @@ plugins {
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.room) apply false
+    alias(libs.plugins.detekt) apply false
+    alias(libs.plugins.ktlint) apply false
+}
+
+// Static analysis for every module (docs/18-coding-standards.md §1). Findings are fixed or excluded
+// in config/detekt/detekt.yml with a written reason; no baseline files.
+subprojects {
+    apply(plugin = "dev.detekt")
+    apply(plugin = "org.jlleitschuh.gradle.ktlint")
+
+    extensions.configure<dev.detekt.gradle.extensions.DetektExtension> {
+        buildUponDefaultConfig.set(true)
+        config.setFrom(rootProject.file("config/detekt/detekt.yml"))
+    }
+    extensions.configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
+        version.set(rootProject.libs.versions.ktlint.get())
+    }
 }
 
 // ---------------------------------------------------------------------------------------------

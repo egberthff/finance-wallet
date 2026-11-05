@@ -1,20 +1,25 @@
 package ph.financewallet.app.security
 
-import java.nio.file.Files
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import ph.financewallet.data.security.KeyWrapper
+import java.nio.file.Files
 
 class AppLockControllerTest {
-    private val identity = object : KeyWrapper {
-        override fun wrap(plaintext: ByteArray) = plaintext.copyOf()
-        override fun unwrap(wrapped: ByteArray) = wrapped.copyOf()
-    }
+    private val identity =
+        object : KeyWrapper {
+            override fun wrap(plaintext: ByteArray) = plaintext.copyOf()
+
+            override fun unwrap(wrapped: ByteArray) = wrapped.copyOf()
+        }
     private var clock = 1_000_000L
     private val dir = Files.createTempDirectory("lock").toFile()
 
-    private fun controller() = AppLockController(PinStore(dir, identity), PinHasher(iterations = 1_000), { clock }, autoLockAfterMillis = 60_000L)
+    private fun controller() =
+        AppLockController(PinStore(dir, identity), PinHasher(iterations = 1_000), {
+            clock
+        }, autoLockAfterMillis = 60_000L)
 
     private fun AppLockController.enter(pin: String) = submitPin(pin.toCharArray())
 
@@ -30,7 +35,10 @@ class AppLockControllerTest {
 
     @Test
     fun `restart starts locked, wrong PIN is reported, right PIN unlocks`() {
-        controller().apply { enter("111222"); enter("111222") }
+        controller().apply {
+            enter("111222")
+            enter("111222")
+        }
         val c = controller()
         assertEquals(LockState.Locked(), c.state)
         assertEquals(LockState.Locked(wrongPin = true, lockedUntilMillis = 0L), c.enter("000000"))
@@ -39,7 +47,10 @@ class AppLockControllerTest {
 
     @Test
     fun `lockout blocks even the correct PIN and biometrics until it expires`() {
-        controller().apply { enter("111222"); enter("111222") }
+        controller().apply {
+            enter("111222")
+            enter("111222")
+        }
         val c = controller()
         repeat(6) { c.enter("000000") }
         val locked = c.state as LockState.Locked
@@ -52,7 +63,10 @@ class AppLockControllerTest {
 
     @Test
     fun `lockout survives app restart`() {
-        controller().apply { enter("111222"); enter("111222") }
+        controller().apply {
+            enter("111222")
+            enter("111222")
+        }
         val c = controller()
         repeat(6) { c.enter("000000") }
         assertTrue(controller().enter("111222") is LockState.Locked)
@@ -61,10 +75,15 @@ class AppLockControllerTest {
     @Test
     fun `auto-lock after the background timeout only`() {
         val c = controller()
-        c.enter("111222"); c.enter("111222")
-        c.onBackgrounded(); clock += 59_999; c.onForegrounded()
+        c.enter("111222")
+        c.enter("111222")
+        c.onBackgrounded()
+        clock += 59_999
+        c.onForegrounded()
         assertEquals(LockState.Unlocked, c.state)
-        c.onBackgrounded(); clock += 60_000; c.onForegrounded()
+        c.onBackgrounded()
+        clock += 60_000
+        c.onForegrounded()
         assertEquals(LockState.Locked(), c.state)
         assertEquals(LockState.Unlocked, c.onBiometricSuccess())
     }

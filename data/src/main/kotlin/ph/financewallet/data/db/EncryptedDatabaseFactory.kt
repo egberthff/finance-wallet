@@ -1,10 +1,10 @@
 package ph.financewallet.data.db
 
 import android.content.Context
-import java.io.File
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import ph.financewallet.data.security.AndroidKeystoreKeyWrapper
 import ph.financewallet.data.security.DatabaseKeyStore
+import java.io.File
 
 /**
  * Opens the production database encrypted with SQLCipher (ADR-0002). The raw 32-byte key comes from
@@ -29,7 +29,9 @@ object EncryptedDatabaseFactory {
     /**
      * SQLCipher raw-key form `x'<64 hex>'`: the 256-bit key is used directly, skipping per-open PBKDF2
      * (the key is already random, so a KDF adds startup cost without security benefit).
+     * MagicNumber is suppressed: the nibble shifts/masks and the 3 framing bytes are the hex encoding itself.
      */
+    @Suppress("MagicNumber")
     internal fun rawKeySpec(key: ByteArray): ByteArray {
         require(key.size == DatabaseKeyStore.KEY_BYTES) { "key must be ${DatabaseKeyStore.KEY_BYTES} bytes" }
         val hex = "0123456789abcdef"

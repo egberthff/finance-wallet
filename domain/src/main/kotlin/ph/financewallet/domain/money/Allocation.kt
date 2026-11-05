@@ -9,14 +9,16 @@ import java.math.BigInteger
  * and the result is identical for identical input on every device.
  */
 public object Allocation {
-
     /**
      * Splits [total] minor units proportionally to [weights].
      *
      * Ties in the remainder go to the smallest key. Keys must be distinct, weights must be >= 0, and
      * at least one weight must be > 0. Returns shares in the input order.
      */
-    public fun <K : Comparable<K>> split(total: Long, weights: List<Pair<K, Long>>): LinkedHashMap<K, Long> {
+    public fun <K : Comparable<K>> split(
+        total: Long,
+        weights: List<Pair<K, Long>>,
+    ): LinkedHashMap<K, Long> {
         require(weights.isNotEmpty()) { "weights must not be empty" }
         require(weights.map { it.first }.toSet().size == weights.size) { "keys must be distinct" }
         require(weights.all { it.second >= 0 }) { "weights must be >= 0" }
@@ -35,9 +37,10 @@ public object Allocation {
         }
         val leftover = (magnitude - distributed).intValueExact() // 0 <= leftover < weights.size
 
-        val order = weights.indices.sortedWith(
-            compareByDescending<Int> { remainders[it]!! }.thenBy { weights[it].first },
-        )
+        val order =
+            weights.indices.sortedWith(
+                compareByDescending<Int> { remainders[it]!! }.thenBy { weights[it].first },
+            )
         for (k in 0 until leftover) quotients[order[k]] += 1
 
         val sign = if (total < 0) -1L else 1L
@@ -47,7 +50,10 @@ public object Allocation {
     }
 
     /** Splits a [Money] amount; see [split]. */
-    public fun <K : Comparable<K>> split(total: Money, weights: List<Pair<K, Long>>): LinkedHashMap<K, Money> {
+    public fun <K : Comparable<K>> split(
+        total: Money,
+        weights: List<Pair<K, Long>>,
+    ): LinkedHashMap<K, Money> {
         val shares = split(total.minor, weights)
         return shares.mapValuesTo(LinkedHashMap(shares.size)) { Money(it.value, total.currency) }
     }

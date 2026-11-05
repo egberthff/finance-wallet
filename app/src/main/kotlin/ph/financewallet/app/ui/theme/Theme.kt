@@ -29,56 +29,74 @@ private val Slate900 = Color(0xFF111821)
 
 /** Semantic financial colors used for amounts. Never the only signal: amounts also carry a sign. */
 @Immutable
-data class FinanceColors(val income: Color, val expense: Color, val neutral: Color, val warning: Color)
-
-private val LightFinance = FinanceColors(
-    income = Color(0xFF1B7F3A),
-    expense = Color(0xFFB3261E),
-    neutral = Color(0xFF44505F),
-    warning = Color(0xFF8A5A00),
-)
-private val DarkFinance = FinanceColors(
-    income = Color(0xFF7DDB98),
-    expense = Color(0xFFFFB4AB),
-    neutral = Color(0xFFC3CCD8),
-    warning = Color(0xFFF5C26B),
+data class FinanceColors(
+    val income: Color,
+    val expense: Color,
+    val neutral: Color,
+    val warning: Color,
 )
 
-private val LightScheme: ColorScheme = lightColorScheme(
-    primary = Navy700,
-    onPrimary = Color.White,
-    secondary = Teal600,
-    onSecondary = Color.White,
-    background = Slate50,
-    onBackground = Slate900,
-    surface = Color.White,
-    onSurface = Slate900,
-    surfaceVariant = Slate100,
-    onSurfaceVariant = Color(0xFF44505F),
-)
+private val LightFinance =
+    FinanceColors(
+        income = Color(0xFF1B7F3A),
+        expense = Color(0xFFB3261E),
+        neutral = Color(0xFF44505F),
+        warning = Color(0xFF8A5A00),
+    )
+private val DarkFinance =
+    FinanceColors(
+        income = Color(0xFF7DDB98),
+        expense = Color(0xFFFFB4AB),
+        neutral = Color(0xFFC3CCD8),
+        warning = Color(0xFFF5C26B),
+    )
 
-private val DarkScheme: ColorScheme = darkColorScheme(
-    primary = Color(0xFFA9C7FF),
-    onPrimary = Navy900,
-    secondary = Teal200,
-    onSecondary = Color(0xFF003731),
-    background = Slate900,
-    onBackground = Color(0xFFE3E8EF),
-    surface = Slate800,
-    onSurface = Color(0xFFE3E8EF),
-    surfaceVariant = Color(0xFF2A3442),
-    onSurfaceVariant = Color(0xFFC3CCD8),
-)
+private val LightScheme: ColorScheme =
+    lightColorScheme(
+        primary = Navy700,
+        onPrimary = Color.White,
+        secondary = Teal600,
+        onSecondary = Color.White,
+        background = Slate50,
+        onBackground = Slate900,
+        surface = Color.White,
+        onSurface = Slate900,
+        surfaceVariant = Slate100,
+        onSurfaceVariant = Color(0xFF44505F),
+    )
+
+private val DarkScheme: ColorScheme =
+    darkColorScheme(
+        primary = Color(0xFFA9C7FF),
+        onPrimary = Navy900,
+        secondary = Teal200,
+        onSecondary = Color(0xFF003731),
+        background = Slate900,
+        onBackground = Color(0xFFE3E8EF),
+        surface = Slate800,
+        onSurface = Color(0xFFE3E8EF),
+        surfaceVariant = Color(0xFF2A3442),
+        onSurfaceVariant = Color(0xFFC3CCD8),
+    )
 
 /** Spacing scale (4-dp grid). */
 @Immutable
-data class Spacing(val xs: Dp = 4.dp, val sm: Dp = 8.dp, val md: Dp = 16.dp, val lg: Dp = 24.dp, val xl: Dp = 32.dp)
+data class Spacing(
+    val xs: Dp = 4.dp,
+    val sm: Dp = 8.dp,
+    val md: Dp = 16.dp,
+    val lg: Dp = 24.dp,
+    val xl: Dp = 32.dp,
+)
 
 val LocalFinanceColors = staticCompositionLocalOf { LightFinance }
 val LocalSpacing = staticCompositionLocalOf { Spacing() }
 
 @Composable
-fun FinanceTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+fun FinanceTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit,
+) {
     androidx.compose.runtime.CompositionLocalProvider(
         LocalFinanceColors provides if (darkTheme) DarkFinance else LightFinance,
         LocalSpacing provides Spacing(),

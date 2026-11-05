@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 class AllocationTest {
-
     @Test
     fun `EX-1 split 100 pesos by 3333-3333-3334 bp`() {
         val r = Allocation.split(10_000L, listOf("a" to 3333L, "b" to 3333L, "c" to 3334L))
@@ -40,10 +39,11 @@ class AllocationTest {
 
     @Test
     fun `EX-16 percentage allocation of 25000 pesos`() {
-        val r = Allocation.split(
-            Money(2_500_000L, CurrencyCode.PHP),
-            listOf("Bills" to 5500L, "Food" to 3000L, "Transport" to 1500L),
-        )
+        val r =
+            Allocation.split(
+                Money(2_500_000L, CurrencyCode.PHP),
+                listOf("Bills" to 5500L, "Food" to 3000L, "Transport" to 1500L),
+            )
         assertEquals(1_375_000L, r.getValue("Bills").minor)
         assertEquals(750_000L, r.getValue("Food").minor)
         assertEquals(375_000L, r.getValue("Transport").minor)
@@ -72,27 +72,29 @@ class AllocationTest {
     }
 
     @Test
-    fun `property - shares always sum exactly to the total and are deterministic`() = runBlocking {
-        checkAll(2_000, Arb.long(-1_000_000_000_000L..1_000_000_000_000L), Arb.list(Arb.int(0..10_000), 1..12)) { total, ws ->
-            val weights = ws.mapIndexed { i, w -> "k%02d".format(i) to w.toLong() }
-            if (weights.sumOf { it.second } == 0L) return@checkAll
-            val first = Allocation.split(total, weights)
-            val second = Allocation.split(total, weights)
-            assertEquals(total, first.values.fold(0L) { a, b -> Math.addExact(a, b) })
-            assertEquals(first, second)
-            assertTrue(first.values.all { it == 0L || (it > 0) == (total > 0) })
-        }
-    }
-
-    @Test
-    fun `property - each share is within one minor unit of its exact proportion`() = runBlocking {
-        checkAll(2_000, Arb.long(0L..10_000_000L), Arb.list(Arb.int(1..10_000), 1..8)) { total, ws ->
-            val weights = ws.mapIndexed { i, w -> i to w.toLong() }
-            val sum = weights.sumOf { it.second }
-            Allocation.split(total, weights).forEach { (i, share) ->
-                val floor = total * weights[i].second / sum // fits in Long for these ranges
-                assertTrue(share == floor || share == floor + 1, "share $share vs floor $floor")
+    fun `property - shares always sum exactly to the total and are deterministic`() =
+        runBlocking {
+            checkAll(2_000, Arb.long(-1_000_000_000_000L..1_000_000_000_000L), Arb.list(Arb.int(0..10_000), 1..12)) { total, ws ->
+                val weights = ws.mapIndexed { i, w -> "k%02d".format(i) to w.toLong() }
+                if (weights.sumOf { it.second } == 0L) return@checkAll
+                val first = Allocation.split(total, weights)
+                val second = Allocation.split(total, weights)
+                assertEquals(total, first.values.fold(0L) { a, b -> Math.addExact(a, b) })
+                assertEquals(first, second)
+                assertTrue(first.values.all { it == 0L || (it > 0) == (total > 0) })
             }
         }
-    }
+
+    @Test
+    fun `property - each share is within one minor unit of its exact proportion`() =
+        runBlocking {
+            checkAll(2_000, Arb.long(0L..10_000_000L), Arb.list(Arb.int(1..10_000), 1..8)) { total, ws ->
+                val weights = ws.mapIndexed { i, w -> i to w.toLong() }
+                val sum = weights.sumOf { it.second }
+                Allocation.split(total, weights).forEach { (i, share) ->
+                    val floor = total * weights[i].second / sum // fits in Long for these ranges
+                    assertTrue(share == floor || share == floor + 1, "share $share vs floor $floor")
+                }
+            }
+        }
 }

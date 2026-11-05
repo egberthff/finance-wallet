@@ -14,18 +14,21 @@ import javax.crypto.spec.GCMParameterSpec
 /** Encrypts/decrypts small secrets with a non-exportable key (docs/16-security-architecture.md §3). */
 interface KeyWrapper {
     fun wrap(plaintext: ByteArray): ByteArray
+
     fun unwrap(wrapped: ByteArray): ByteArray
 }
 
 /** AES-256-GCM key held in the Android Keystore under [alias]. Output format: 12-byte IV ‖ ciphertext+tag. */
-class AndroidKeystoreKeyWrapper(private val alias: String) : KeyWrapper {
-
+class AndroidKeystoreKeyWrapper(
+    private val alias: String,
+) : KeyWrapper {
     private fun key(): SecretKey {
         val ks = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
         (ks.getKey(alias, null) as? SecretKey)?.let { return it }
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)
         generator.init(
-            KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+            KeyGenParameterSpec
+                .Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setKeySize(KEY_BITS)
@@ -62,8 +65,9 @@ class AndroidKeystoreKeyWrapper(private val alias: String) : KeyWrapper {
 }
 
 /** Thrown when a stored database key exists but cannot be unwrapped (e.g., Keystore key invalidated). */
-class DatabaseKeyUnavailableException(cause: Throwable) :
-    IllegalStateException("The database key could not be unlocked", cause)
+class DatabaseKeyUnavailableException(
+    cause: Throwable,
+) : IllegalStateException("The database key could not be unlocked", cause)
 
 /**
  * Holds the random 256-bit SQLCipher key, stored only in wrapped form in [keyFile].
@@ -80,16 +84,27 @@ class DatabaseKeyStore(
     fun getOrCreateKey(): ByteArray {
         if (keyFile.exists()) {
             val wrapped = keyFile.readBytes()
-            return try {
-                wrapper.unwrap(wrapped).also { check(it.size == KEY_BYTES) { "stored key has wrong length" } }
-            } catch (e: Exception) {
-                throw DatabaseKeyUnavailableException(e)
-            }
+            return unwrapStoredKey(wrapped)
         }
         val key = ByteArray(KEY_BYTES).also(random::nextBytes)
         writeAtomically(wrapper.wrap(key))
         return key
     }
+
+    private fun unwrapStoredKey(wrapped: ByteArray): ByteArray =
+        try {
+            wrapper.unwrap(wrapped).also { check(it.size == KEY_BYTES) { "stored key has wrong length" } }
+        } catch (e: java.security.GeneralSecurityException) {
+            keyUnavailable(e) // bad tag, invalidated or missing Keystore key
+        } catch (e: java.security.ProviderException) {
+            keyUnavailable(e) // Android Keystore reports some hardware failures this way
+        } catch (e: IllegalStateException) {
+            keyUnavailable(e) // wrong key length after unwrap
+        } catch (e: IllegalArgumentException) {
+            keyUnavailable(e) // truncated wrapped-key file
+        }
+
+    private fun keyUnavailable(cause: Throwable): Nothing = throw DatabaseKeyUnavailableException(cause)
 
     private fun writeAtomically(bytes: ByteArray) {
         keyFile.parentFile?.mkdirs()

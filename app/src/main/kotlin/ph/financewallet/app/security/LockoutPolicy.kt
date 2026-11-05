@@ -1,7 +1,10 @@
 package ph.financewallet.app.security
 
 /** Persisted failure state for PIN attempts. */
-data class LockoutState(val consecutiveFailures: Int = 0, val lockedUntilMillis: Long = 0L)
+data class LockoutState(
+    val consecutiveFailures: Int = 0,
+    val lockedUntilMillis: Long = 0L,
+)
 
 /**
  * Exponential backoff after repeated wrong PINs (docs/16-security-architecture.md T9):
@@ -13,11 +16,20 @@ object LockoutPolicy {
     private const val BASE_DELAY_MS = 30_000L
     private const val MAX_DELAY_MS = 3_600_000L
 
-    fun isLocked(state: LockoutState, nowMillis: Long): Boolean = nowMillis < state.lockedUntilMillis
+    fun isLocked(
+        state: LockoutState,
+        nowMillis: Long,
+    ): Boolean = nowMillis < state.lockedUntilMillis
 
-    fun remainingMillis(state: LockoutState, nowMillis: Long): Long = (state.lockedUntilMillis - nowMillis).coerceAtLeast(0L)
+    fun remainingMillis(
+        state: LockoutState,
+        nowMillis: Long,
+    ): Long = (state.lockedUntilMillis - nowMillis).coerceAtLeast(0L)
 
-    fun onFailure(state: LockoutState, nowMillis: Long): LockoutState {
+    fun onFailure(
+        state: LockoutState,
+        nowMillis: Long,
+    ): LockoutState {
         val failures = state.consecutiveFailures + 1
         val overLimit = failures - FREE_ATTEMPTS
         if (overLimit <= 0) return LockoutState(failures, 0L)

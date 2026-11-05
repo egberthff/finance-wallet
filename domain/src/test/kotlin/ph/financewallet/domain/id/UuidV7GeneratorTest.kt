@@ -1,13 +1,13 @@
 package ph.financewallet.domain.id
 
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 import java.security.SecureRandom
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
 import java.util.UUID
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.Test
 
 class UuidV7GeneratorTest {
     private val fixedInstant = Instant.parse("2026-11-05T02:00:00Z")
@@ -35,11 +35,14 @@ class UuidV7GeneratorTest {
     @Test
     fun `clock going backwards does not break ordering`() {
         var now = fixedInstant.toEpochMilli()
-        val clock = object : Clock() {
-            override fun getZone() = ZoneOffset.UTC
-            override fun withZone(zone: java.time.ZoneId?) = this
-            override fun instant(): Instant = Instant.ofEpochMilli(now)
-        }
+        val clock =
+            object : Clock() {
+                override fun getZone() = ZoneOffset.UTC
+
+                override fun withZone(zone: java.time.ZoneId?) = this
+
+                override fun instant(): Instant = Instant.ofEpochMilli(now)
+            }
         val generator = UuidV7Generator(clock)
         val a = generator.newId()
         now -= 5_000

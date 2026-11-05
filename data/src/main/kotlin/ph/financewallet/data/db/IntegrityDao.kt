@@ -4,7 +4,9 @@ import androidx.room.Dao
 import androidx.room.Query
 
 /** Row returned by integrity checks: a short description of each offending record. */
-data class IntegrityViolation(val detail: String)
+data class IntegrityViolation(
+    val detail: String,
+)
 
 /**
  * Integrity checks IC-1..IC-4, IC-7 (docs/11-database-schema.md §5). Each query must return zero rows.

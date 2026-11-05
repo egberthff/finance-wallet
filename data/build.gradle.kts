@@ -37,6 +37,11 @@ tasks.withType<Test>().configureEach {
         "--add-exports=java.base/jdk.internal.access=ALL-UNNAMED",
         "--add-opens=java.base/java.io=ALL-UNNAMED",
     )
+    // SchemaConformanceTest reads the reference DDL: a doc-only change must re-run the tests.
+    inputs
+        .file(rootProject.file("docs/11-database-schema.md"))
+        .withPropertyName("referenceSchemaDoc")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 room {
