@@ -23,4 +23,5 @@ complexity:
     ignorePrivate: true
   LongParameterList:
     # Room entities mirror table columns 1:1 (docs/11-database-schema.md); splitting them would break that mapping.
-    ignoreAnnotated: ['Entity']
+    # Composables hoist state: each value and callback is a parameter by design (Compose guidelines).
+    ignoreAnnotated: ['Entity', 'Composable']

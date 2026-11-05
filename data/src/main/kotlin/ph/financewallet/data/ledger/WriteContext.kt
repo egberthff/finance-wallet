@@ -48,3 +48,11 @@ fun interface FaultInjector {
         val NONE = FaultInjector { }
     }
 }
+
+/** The stable per-install device id used in sync columns (ADR-0007), created on first use. */
+suspend fun ph.financewallet.data.db.FinanceDatabase.deviceId(newId: () -> String): String {
+    val dao = accountDao()
+    return dao.meta(DEVICE_ID_KEY) ?: newId().also { dao.setMeta(DEVICE_ID_KEY, it) }
+}
+
+private const val DEVICE_ID_KEY = "device_id"

@@ -93,3 +93,11 @@ sealed interface LeftoverResolution {
     /** Let it lapse; recorded so it leaves the "to reassign" list. */
     data object Expire : LeftoverResolution
 }
+
+data class BudgetHeader(
+    val id: String,
+    val name: String,
+    val currency: CurrencyCode,
+    val incomeMode: IncomeMode,
+    val version: Long,
+)

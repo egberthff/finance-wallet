@@ -264,6 +264,18 @@ class BudgetService(
 
     suspend fun periods(budgetId: String): List<PeriodInfo> = dao.periods(budgetId).map(support::info)
 
+    /** Active (not archived) budgets, by name. */
+    suspend fun activeBudgets(): List<BudgetHeader> =
+        dao.activeBudgets().map {
+            BudgetHeader(
+                it.id,
+                it.name,
+                CurrencyCode.of(it.currency),
+                IncomeMode.valueOf(it.incomeMode),
+                it.version,
+            )
+        }
+
     // ---- internals ----------------------------------------------------------------------------------------------
 
     private suspend fun ValidationScope.closeInternal(

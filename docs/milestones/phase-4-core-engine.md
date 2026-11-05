@@ -1,6 +1,6 @@
 # Milestone Plan: Phase 4, Core Financial Engine
 
-| Status | **Planned.** Starts after the remaining Phase 3 work; owner instruction "proceed all" (2026-11-05) |
+| Status | **Implemented (2026-11-05)**: steps 4.1–4.9 done with JVM/Robolectric evidence (PROGRESS.md). Device-only acceptance (performance targets, Maestro journeys) reserved for Phase 8 final testing by the owner. |
 |---|---|
 
 ## 1. Objectives

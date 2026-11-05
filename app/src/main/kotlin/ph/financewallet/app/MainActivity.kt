@@ -16,6 +16,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ph.financewallet.app.security.LockState
+import ph.financewallet.app.ui.components.ErrorState
+import ph.financewallet.app.ui.components.LoadingState
 import ph.financewallet.app.ui.lock.LockScreen
 import ph.financewallet.app.ui.navigation.AppNavigation
 import ph.financewallet.app.ui.theme.FinanceTheme
@@ -29,6 +31,8 @@ class MainActivity : FragmentActivity() {
 
     private var lockState by mutableStateOf<LockState>(LockState.NeedsSetup())
     private var busy by mutableStateOf(false)
+    private var services by mutableStateOf<AppServices?>(null)
+    private var openError by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,7 +41,7 @@ class MainActivity : FragmentActivity() {
         setContent {
             FinanceTheme {
                 if (lockState == LockState.Unlocked) {
-                    AppNavigation()
+                    UnlockedContent()
                 } else {
                     LockScreen(
                         state = lockState,
@@ -48,6 +52,32 @@ class MainActivity : FragmentActivity() {
                     )
                 }
             }
+        }
+    }
+
+    @androidx.compose.runtime.Composable
+    private fun UnlockedContent() {
+        val current = services
+        when {
+            current != null -> AppNavigation(current)
+            openError -> ErrorState(getString(R.string.db_open_error_title), getString(R.string.db_open_error_message))
+            else -> LoadingState(getString(R.string.loading))
+        }
+        androidx.compose.runtime.LaunchedEffect(Unit) { openServices() }
+    }
+
+    /** Opens the encrypted database (and migrates with a backup) off the main thread, once per process. */
+    private suspend fun openServices() {
+        if (services != null) return
+        try {
+            val container = (application as FinanceApp).container
+            services = withContext(Dispatchers.IO) { AppServices.create(container.database()) }
+        } catch (
+            // Any failure to open must show an error screen, never a crash or a half-working app (UX-05).
+            @Suppress("TooGenericExceptionCaught") e: Exception,
+        ) {
+            android.util.Log.e("FinanceWallet", "database open failed", e)
+            openError = true
         }
     }
 
