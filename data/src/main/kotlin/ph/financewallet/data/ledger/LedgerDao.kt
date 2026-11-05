@@ -12,6 +12,17 @@ import ph.financewallet.data.db.entity.LedgerAccountEntity
 import ph.financewallet.data.db.entity.TxnEntity
 import ph.financewallet.data.db.entity.TxnRevisionEntity
 
+/** One transaction header for list screens. */
+data class TxnListRow(
+    val id: String,
+    val type: String,
+    val status: String,
+    val txnDate: String,
+    val description: String,
+    val merchant: String?,
+    val version: Long,
+)
+
 /** Aggregate row for report classification (docs/10-domain-model.md §3.4). */
 data class BucketTotal(
     val currency: String,
@@ -105,6 +116,29 @@ interface LedgerDao {
 
     @Query("SELECT COUNT(*) FROM txn WHERE refund_of_txn_id = :txnId AND deleted_at IS NULL")
     suspend fun liveRefundCount(txnId: String): Int
+
+    // ---- lists (keyset pagination on ix_txn_date, NFR-03) -------------------------------------------------
+
+    /** Live transactions strictly before the cursor (date, id), newest first; optionally only those touching [accountId]. */
+    @Query(
+        """SELECT t.id, t.type, t.status, t.txn_date AS txnDate, t.description, t.merchant, t.version FROM txn t
+           WHERE t.deleted_at IS NULL
+             AND (:beforeDate IS NULL OR t.txn_date < :beforeDate OR (t.txn_date = :beforeDate AND t.id < :beforeId))
+             AND (:accountId IS NULL OR EXISTS (SELECT 1 FROM entry e WHERE e.txn_id = t.id AND e.ledger_account_id = :accountId))
+           ORDER BY t.txn_date DESC, t.id DESC LIMIT :limit""",
+    )
+    suspend fun txnPage(
+        beforeDate: String?,
+        beforeId: String?,
+        accountId: String?,
+        limit: Int,
+    ): List<TxnListRow>
+
+    @Query("SELECT * FROM entry WHERE txn_id IN (:txnIds) ORDER BY txn_id, line_no")
+    suspend fun entriesOf(txnIds: List<String>): List<EntryEntity>
+
+    @Query("SELECT * FROM ledger_account WHERE id IN (:ids)")
+    suspend fun ledgerAccounts(ids: List<String>): List<LedgerAccountEntity>
 
     // ---- balances & reports (same semantics as domain LedgerCalculator) ----------------------------------
 
