@@ -1,5 +1,6 @@
 package ph.financewallet.app
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.compose.setContent
@@ -20,7 +21,9 @@ import ph.financewallet.app.ui.components.ErrorState
 import ph.financewallet.app.ui.components.LoadingState
 import ph.financewallet.app.ui.lock.LockScreen
 import ph.financewallet.app.ui.navigation.AppNavigation
+import ph.financewallet.app.ui.navigation.PrivacyActions
 import ph.financewallet.app.ui.theme.FinanceTheme
+import kotlin.system.exitProcess
 
 /**
  * Single activity. FragmentActivity because BiometricPrompt requires it.
@@ -59,11 +62,26 @@ class MainActivity : FragmentActivity() {
     private fun UnlockedContent() {
         val current = services
         when {
-            current != null -> AppNavigation(current)
+            current != null -> AppNavigation(current, privacyActions())
             openError -> ErrorState(getString(R.string.db_open_error_title), getString(R.string.db_open_error_message))
             else -> LoadingState(getString(R.string.loading))
         }
         androidx.compose.runtime.LaunchedEffect(Unit) { openServices() }
+    }
+
+    private fun privacyActions(): PrivacyActions {
+        val container = (application as FinanceApp).container
+        return PrivacyActions(confirmPin = lock::confirmPin, wipe = container::wipeAll, onDeleted = ::restartAfterWipe)
+    }
+
+    /**
+     * After delete-all the process still holds stale state (open services, the unlocked lock), so the app starts again in
+     * a new process, which begins at PIN setup.
+     */
+    private fun restartAfterWipe() {
+        packageManager.getLaunchIntentForPackage(packageName)?.component?.let { startActivity(Intent.makeRestartActivityTask(it)) }
+        finishAffinity()
+        exitProcess(0)
     }
 
     /** Opens the encrypted database (and migrates with a backup) off the main thread, once per process. */
@@ -71,7 +89,7 @@ class MainActivity : FragmentActivity() {
         if (services != null) return
         try {
             val container = (application as FinanceApp).container
-            services = withContext(Dispatchers.IO) { AppServices.create(container.database()) }
+            services = withContext(Dispatchers.IO) { container.services() }
         } catch (
             // Any failure to open must show an error screen, never a crash or a half-working app (UX-05).
             @Suppress("TooGenericExceptionCaught") e: Exception,

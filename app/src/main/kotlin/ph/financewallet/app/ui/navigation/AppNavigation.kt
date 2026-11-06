@@ -28,6 +28,12 @@ import ph.financewallet.app.ui.advanced.DebtsScreen
 import ph.financewallet.app.ui.advanced.DebtsViewModel
 import ph.financewallet.app.ui.advanced.ReportsScreen
 import ph.financewallet.app.ui.advanced.ReportsViewModel
+import ph.financewallet.app.ui.backup.BackupScreen
+import ph.financewallet.app.ui.backup.BackupViewModel
+import ph.financewallet.app.ui.backup.DeleteAllViewModel
+import ph.financewallet.app.ui.backup.InsightsScreen
+import ph.financewallet.app.ui.backup.InsightsViewModel
+import ph.financewallet.app.ui.backup.PrivacyScreen
 import ph.financewallet.app.ui.budgets.BudgetsScreen
 import ph.financewallet.app.ui.budgets.BudgetsViewModel
 import ph.financewallet.app.ui.budgets.GoalsScreen
@@ -59,9 +65,22 @@ private const val REPORTS = "reports"
 private const val IMPORT = "import"
 private const val IMPORT_HISTORY = "import-history"
 private const val RULES = "rules"
+private const val INSIGHTS = "insights"
+private const val BACKUP = "backup"
+private const val PRIVACY = "privacy"
+
+/** What delete-all-data needs from outside the services (UC-31): the PIN re-check, the wipe and the restart. */
+class PrivacyActions(
+    val confirmPin: (CharArray) -> Boolean,
+    val wipe: suspend () -> Unit,
+    val onDeleted: () -> Unit,
+)
 
 @Composable
-fun AppNavigation(services: AppServices) {
+fun AppNavigation(
+    services: AppServices,
+    privacy: PrivacyActions,
+) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val current = backStack?.destination?.route
@@ -83,6 +102,7 @@ fun AppNavigation(services: AppServices) {
         NavHost(nav, startDestination = TopLevel.HOME.route, modifier = Modifier.padding(padding)) {
             topLevelRoutes(nav, services)
             featureRoutes(nav, services)
+            dataRoutes(services, privacy)
         }
     }
 }
@@ -104,6 +124,7 @@ private fun NavGraphBuilder.topLevelRoutes(
             viewModel { HomeViewModel(services) },
             onAddTransaction = { nav.navigate(ENTRY) },
             onBills = { nav.navigate(BILLS) },
+            onBackup = { nav.navigate(BACKUP) },
         )
     }
     composable(TopLevel.TRANSACTIONS.route) {
@@ -126,6 +147,9 @@ private fun NavGraphBuilder.topLevelRoutes(
             onImport = { nav.navigate(IMPORT) },
             onImportHistory = { nav.navigate(IMPORT_HISTORY) },
             onRules = { nav.navigate(RULES) },
+            onInsights = { nav.navigate(INSIGHTS) },
+            onBackup = { nav.navigate(BACKUP) },
+            onPrivacy = { nav.navigate(PRIVACY) },
         )
     }
 }
@@ -149,4 +173,20 @@ private fun NavGraphBuilder.featureRoutes(
     composable(IMPORT) { ImportScreen(viewModel { ImportViewModel(services) }) }
     composable(IMPORT_HISTORY) { ImportHistoryScreen(viewModel { ImportHistoryViewModel(services) }) }
     composable(RULES) { RulesScreen(viewModel { RulesViewModel(services) }) }
+}
+
+/** Insights, backup and privacy (Phase 7). */
+private fun NavGraphBuilder.dataRoutes(
+    services: AppServices,
+    privacy: PrivacyActions,
+) {
+    composable(INSIGHTS) { InsightsScreen(viewModel { InsightsViewModel(services) }) }
+    composable(BACKUP) { BackupScreen(viewModel { BackupViewModel(services) }) }
+    composable(PRIVACY) {
+        PrivacyScreen(
+            backup = viewModel { BackupViewModel(services) },
+            delete = viewModel { DeleteAllViewModel(privacy.confirmPin, privacy.wipe) },
+            onDeleted = privacy.onDeleted,
+        )
+    }
 }

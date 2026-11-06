@@ -120,6 +120,13 @@ class PreMigrationBackups(
 ) {
     fun list(): List<File> = dir.listFiles { f -> f.name.startsWith(PREFIX) && f.name.endsWith(".db") }.orEmpty().sortedBy { it.name }
 
+    /** A copy taken outside migrations (e.g. before a restore); same rotation of the last [KEEP] copies. */
+    fun createCopy(
+        dbFile: File,
+        schemaVersion: Int,
+        nowMillis: Long,
+    ): File = create(dbFile, schemaVersion, nowMillis)
+
     internal fun create(
         dbFile: File,
         fromVersion: Int,

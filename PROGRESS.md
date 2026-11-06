@@ -20,7 +20,7 @@ _Last updated: 2026-11-05_
 | 4. Core financial engine | **Steps 4.1–4.9 implemented and tested on the JVM**; device-only criteria (performance, Maestro journeys 1–9) deferred to Phase 8 by owner. Awaiting owner review before Phase 5 | [milestone plan](docs/milestones/phase-4-core-engine.md) |
 | 5. Advanced finance | **Steps 5.1–5.5 implemented and tested on the JVM** (2026-11-06); device-only checks reserved for Phase 8. Awaiting owner review before Phase 6 | [milestone plan](docs/milestones/phase-5-advanced-finance.md) |
 | 6. Statement import | **Steps 6.1–6.5 implemented and tested on the JVM** (2026-11-06): generic CSV/XLSX; PDF refused until a verified layout exists; device checks reserved for Phase 8. Awaiting owner review before Phase 7 | [milestone plan](docs/milestones/phase-6-statement-import.md) |
-| 7. Backup, privacy, insights | **In progress** (owner approved 2026-11-06; cloud/sync dropped and AI replaced by on-device insights, ADR-0012) | [milestone plan](docs/milestones/phase-7-backup-privacy-insights.md) |
+| 7. Backup, privacy, insights | **Steps 7.1–7.5 implemented and tested on the JVM** (2026-11-06): encrypted .fwbak backup and verified restore, export, delete all, on-device insights; cloud/sync and AI dropped (ADR-0012); device checks reserved for Phase 8. Awaiting owner review before Phase 8 | [milestone plan](docs/milestones/phase-7-backup-privacy-insights.md) |
 | 8–9 | Planned | — |
 
 ## Phase 1 deliverables
@@ -117,11 +117,12 @@ Phase 3 code exists (see above). Feature rows below reflect it.
 | Direct integrations | INT-01, 03, 04, 05 | — | **Out of scope** | — | — | ADR-0006 |
 | Integration constraints | INT-02, INT-06 | all | In force (policy) | — | n/a | — |
 | Local-first & encrypted DB | LOC-01..04 | 3 | **In progress**: schema v1, triggers, integrity checks, SQLCipher factory, Keystore-wrapped key implemented | data/src/main/... | Executed–Passed (11, JVM/Robolectric); encryption on device **Not executed** | Pre-migration backup not yet implemented (needs the first migration and the backup format) |
-| Local backup | BAK-01 | 5–6 (MVP) | Planned | — | Not written | — |
-| Cloud backup / sync | BAK-02, SYNC-01..02 | 7 | Planned | — | Not written | Optional; R-04 |
+| Local backup | BAK-01 | 7 | **Implemented + tested (JVM/Robolectric)**: `.fwbak` (Argon2id + chunked AES-256-GCM), verified replace-only restore in one transaction with pre-restore copy, Backup & restore screen, Home reminder | data/.../backup, app/.../ui/backup | Executed–Passed: BackupCryptoTest 7, BackupServiceTest 5, Phase7ViewModelsTest (backup/restore/damaged files) | Argon2id timing and SAF with cloud-drive providers on device: Phase 8 |
+| Cloud backup / sync | BAK-02, SYNC-01..02 | — | **Out of scope** | — | — | ADR-0012 |
 | Security | SEC-01..05 | 3+ | **In progress**: app lock (PIN PBKDF2 210k + Keystore-wrapped hash, backoff, biometric, auto-lock 60 s), FLAG_SECURE, no-network manifest check, backup exclusion | app/src/main/.../security, AndroidManifest.xml | Executed–Passed (13 JVM); on-device **Not executed** | Biometric opt-out setting pending |
-| Privacy | PRIV-01..03 | 3, 9 | Planned | — | Not written | Legal review required (R-07) |
-| AI assistant | AI-01..04 | 7 | Planned | — | Not written | Q-10 |
+| Privacy | PRIV-01..03 | 7, 9 | **PRIV-01 implemented + tested**: plaintext export of all data (with warning), delete all data (acknowledgement + PIN; database, keys, PIN, local copies, alarm) | app/.../ui/backup, FinanceApp.kt | Executed–Passed: Phase7ViewModelsTest (export, PIN gate, wipe of files), AppLockControllerTest (confirmPin lockout) | Keystore deletion and restart verified on device in Phase 8; privacy notice and legal review (R-07) in Phase 9 |
+| AI assistant | AI-01..04 | — | **Out of scope**: replaced by on-device insights | — | — | ADR-0012 |
+| On-device insights | INS-01..03 | 7 | **Implemented + tested**: month flow, top categories, increases vs. same days last month, unusual expenses, bills vs. free money, saving-capacity estimate (labelled); read-only | domain/.../insight, data/.../insight, app/.../ui/backup | Executed–Passed: InsightRulesTest 4, InsightsServiceTest 2, Phase7ViewModelsTest | — |
 | UX / design system | UX-01..06 | 3–5 | **In progress**: theme tokens (light/dark), state components, bottom navigation shell; money formatter (UX-06) in domain | app/src/main/.../ui | Formatter tests passed; UI tests Not written | Icons and app icon pending design; sections show honest "not available yet" states |
 | iOS | — | — | **Out of scope** | — | — | ADR-0009 |
 

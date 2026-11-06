@@ -129,6 +129,12 @@ object BillReminders {
         alarms.setInexactRepeating(AlarmManager.RTC, first.toInstant().toEpochMilli(), AlarmManager.INTERVAL_DAY, alarmIntent(context))
     }
 
+    /** Stops the daily check (used by delete-all-data). */
+    fun cancel(context: Context) {
+        context.getSystemService(AlarmManager::class.java)?.cancel(alarmIntent(context))
+        NotificationManagerCompat.from(context).cancelAll()
+    }
+
     private fun alarmIntent(context: Context): PendingIntent =
         PendingIntent.getBroadcast(
             context,

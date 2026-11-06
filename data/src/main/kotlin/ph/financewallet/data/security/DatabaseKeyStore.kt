@@ -54,6 +54,11 @@ class AndroidKeystoreKeyWrapper(
         return cipher.doFinal(wrapped, IV_BYTES, wrapped.size - IV_BYTES)
     }
 
+    /** Deletes the Keystore key (UC-31): anything it wrapped can no longer be decrypted. Missing keys are fine. */
+    fun destroy() {
+        KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }.deleteEntry(alias)
+    }
+
     private companion object {
         const val ANDROID_KEYSTORE = "AndroidKeyStore"
         const val TRANSFORMATION = "AES/GCM/NoPadding"

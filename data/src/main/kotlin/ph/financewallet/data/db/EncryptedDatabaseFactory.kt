@@ -17,6 +17,9 @@ object EncryptedDatabaseFactory {
     @Volatile
     private var libraryLoaded = false
 
+    /** UC-31: destroys the Keystore key that wraps the database key. Call only after the database is closed. */
+    fun destroyKey() = AndroidKeystoreKeyWrapper(WRAP_ALIAS).destroy()
+
     /** Opens (and if needed migrates, with pre-migration backup) the encrypted database. Call off the main thread. */
     suspend fun open(context: Context): FinanceDatabase {
         loadLibrary()

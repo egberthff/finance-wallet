@@ -131,7 +131,6 @@
     <string name="categories_seed">Add suggested categories</string>
     <string name="categories_seed_explain">Optional: add a starter list for the Philippines (salary, 13th month pay, food, transport, bills, SSS, PhilHealth, Pag-IBIG and more). You can edit or archive any of them.</string>
     <string name="categories_parent_optional">Subcategory of (optional)</string>
-    <string name="more_not_built">Debts, bills, reports, import and backup arrive in later milestones.</string>
     <string name="err_generic">That could not be saved. Check the details and try again.</string>
     <string name="err_amount_empty">Enter an amount.</string>
     <string name="err_amount_format">Use numbers like 1,250.50.</string>
@@ -363,5 +362,100 @@
     <plurals name="import_rollback_edited">
         <item quantity="one">%d transaction was edited after the import; the edits will be removed too.</item>
         <item quantity="other">%d transactions were edited after the import; the edits will be removed too.</item>
+    </plurals>
+
+    <!-- Phase 7: backup, privacy, insights -->
+    <string name="home_backup_due">Back up your records</string>
+    <string name="home_backup_due_caption">Your records exist only on this phone. If the phone is lost or reset, only a backup file can bring them back.</string>
+    <string name="backup_title">Backup &amp; restore</string>
+    <string name="backup_explain">A backup is one file with all your records, encrypted with a passphrase you choose. You decide where it is saved, for example a memory card or a computer. The app never sends it anywhere.</string>
+    <string name="backup_never">No backup has been made on this phone yet.</string>
+    <string name="backup_last">Last backup: %1$s</string>
+    <string name="backup_create">Make a backup</string>
+    <string name="backup_passphrase">Passphrase</string>
+    <string name="backup_passphrase_confirm">Passphrase again</string>
+    <string name="backup_unrecoverable">Nobody can open the file without this passphrase, including the app. A forgotten passphrase cannot be recovered or reset.</string>
+    <string name="backup_understood">I understand that a forgotten passphrase cannot be recovered</string>
+    <string name="backup_choose_save">Choose where to save</string>
+    <string name="backup_working">Working…</string>
+    <string name="backup_strength_0">Not accepted yet: at least 10 characters, not a common password</string>
+    <string name="backup_strength_1">Acceptable</string>
+    <string name="backup_strength_2">Good</string>
+    <string name="backup_strength_3">Strong</string>
+    <string name="backup_strength_4">Very strong</string>
+    <string name="backup_pass_too_short">Use at least 10 characters.</string>
+    <string name="backup_pass_too_common">That is one of the most common passwords. Choose something else.</string>
+    <string name="backup_pass_repetitive">Do not repeat a single character.</string>
+    <string name="backup_pass_mismatch">The two passphrases are different.</string>
+    <plurals name="backup_created">
+        <item quantity="one">Backup saved (%d record).</item>
+        <item quantity="other">Backup saved (%d records).</item>
+    </plurals>
+    <string name="backup_restore">Restore a backup</string>
+    <string name="backup_restore_explain">Restoring replaces all records on this phone with the ones in the file. The file is checked completely first; if anything is wrong, nothing changes. A copy of the current records is kept on the phone.</string>
+    <string name="backup_choose_file">Choose a backup file</string>
+    <string name="backup_file_chosen">File chosen. Choose another</string>
+    <string name="backup_check">Check the file</string>
+    <string name="backup_confirm_title">Replace all current data?</string>
+    <string name="backup_summary_made">Backup made %1$s</string>
+    <plurals name="backup_summary_accounts">
+        <item quantity="one">%d account</item>
+        <item quantity="other">%d accounts</item>
+    </plurals>
+    <plurals name="backup_summary_txns">
+        <item quantity="one">%d transaction</item>
+        <item quantity="other">%d transactions</item>
+    </plurals>
+    <string name="backup_summary_range">Transactions from %1$s to %2$s</string>
+    <string name="backup_confirm_warning">Every record now on this phone will be replaced by the backup. Records added after this backup was made will be gone.</string>
+    <string name="backup_replace_all">Replace all current data</string>
+    <string name="backup_restored">Restored the backup made %1$s.</string>
+    <string name="backup_err_write">The file could not be saved. Nothing was kept from the failed attempt; try another location.</string>
+    <string name="backup_err_read">The file could not be read. Nothing was changed.</string>
+    <string name="backup_err_restore">The restore failed. Nothing was changed.</string>
+    <string name="backup_err_not_backup">This is not a Finance Wallet backup file.</string>
+    <string name="backup_err_too_new">This backup was made by a newer version of the app. Update the app, then try again.</string>
+    <string name="backup_err_passphrase">Wrong passphrase, or the file is damaged. Nothing was changed.</string>
+    <string name="backup_err_damaged">The file is damaged or incomplete. Nothing was changed.</string>
+    <string name="privacy_title">Privacy &amp; data</string>
+    <string name="privacy_explain">Your records are stored only on this phone, encrypted. The app has no internet access and sends nothing anywhere.</string>
+    <string name="privacy_export">Export all data</string>
+    <string name="privacy_export_explain">Saves all your records as a readable file (JSON Lines), for your own use or another app.</string>
+    <string name="privacy_export_warning">The exported file is NOT encrypted. Anyone who gets it can read all your financial records. For safekeeping, make an encrypted backup instead.</string>
+    <string name="privacy_export_continue">Export anyway</string>
+    <plurals name="privacy_export_done">
+        <item quantity="one">Exported %d record.</item>
+        <item quantity="other">Exported %d records.</item>
+    </plurals>
+    <string name="privacy_delete">Delete all data</string>
+    <string name="privacy_delete_explain">Removes every record, the PIN, the encryption keys and the local copies from this phone. Backup files you saved elsewhere are not touched.</string>
+    <string name="privacy_delete_title">Delete all data?</string>
+    <string name="privacy_delete_warning">This cannot be undone. Without a backup file, your records are gone for good.</string>
+    <string name="privacy_delete_ack">I understand that everything on this phone will be deleted</string>
+    <string name="privacy_delete_pin">Enter your PIN</string>
+    <string name="privacy_delete_wrong_pin">Wrong PIN, or too many attempts; nothing was deleted.</string>
+    <string name="privacy_delete_confirm">Delete everything</string>
+    <string name="insights_title">Insights</string>
+    <string name="insights_explain">Calculated on this phone from your recorded transactions, %1$s to %2$s. Nothing leaves the phone.</string>
+    <string name="insights_where">Where this month\'s money went</string>
+    <string name="insights_moved_savings">Moved to savings accounts</string>
+    <string name="insights_left_over">Left over</string>
+    <string name="insights_flow_caption">Left over = income − spending − money moved to savings. Negative means earlier money was used.</string>
+    <string name="insights_top">Biggest spending categories</string>
+    <string name="insights_none_spending">No spending recorded this month yet.</string>
+    <string name="insights_increases">Higher than the same days last month (%1$s to %2$s)</string>
+    <string name="insights_none_increase">No category is up by both 25%% and ₱500.</string>
+    <string name="insights_increase_line">%1$s → %2$s</string>
+    <string name="insights_unusual">Unusually large expenses</string>
+    <string name="insights_none_unusual">None this month (more than 3 times the category\'s typical expense and at least ₱1,000).</string>
+    <string name="insights_unusual_line">%1$s (typical %2$s)</string>
+    <string name="insights_bills">Bills due in the next 7 days or overdue</string>
+    <string name="insights_bills_covered">%1$s due; free money %2$s covers it.</string>
+    <string name="insights_bills_short">%1$s due; free money is %2$s, short by %3$s.</string>
+    <string name="insights_capacity">Estimated monthly saving capacity</string>
+    <string name="insights_capacity_none">Not enough history yet: needs at least one full month of records.</string>
+    <plurals name="insights_capacity_caption">
+        <item quantity="one">Estimate: income minus spending, averaged over the last %d full month. Not a promise of future income.</item>
+        <item quantity="other">Estimate: income minus spending, averaged over the last %d full months. Not a promise of future income.</item>
     </plurals>
 </resources>

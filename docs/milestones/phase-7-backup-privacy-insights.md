@@ -1,6 +1,6 @@
 # Milestone Plan: Phase 7, Encrypted Backup, Privacy Controls and On-Device Insights
 
-| Status | **In progress** (owner approved "proceed to Phase 7", 2026-11-06; scope decided the same day, ADR-0012) |
+| Status | **Implemented and tested on the JVM; awaiting owner review** (approved "proceed to Phase 7", 2026-11-06; scope ADR-0012). AC-BAK 1–5, 7, 8 met by executed tests; AC-BAK 6 met for files (Robolectric), Keystore deletion and restart to be confirmed on device in Phase 8 |
 |---|---|
 
 ## 1. Objectives
@@ -55,3 +55,18 @@ Device-only (Phase 8): Argon2id time and memory on the reference device, SAF beh
 
 ## 7. Deliverables
 Code and tests for the steps above, updated docs (backup format notes, security, PROGRESS.md, third-party notices).
+
+## 8. Implementation notes (7.5)
+- **Screens:** More → Insights, Backup & restore, Privacy & data; Home shows a backup reminder when transactions exist and there
+  is no backup or the last one is older than 30 days (R-10).
+- **Backup:** the passphrase is checked before the system "save as" picker opens; the user must tick "a forgotten passphrase
+  cannot be recovered". A failed write deletes the half-written document. Restore: pick file → passphrase → full verification
+  (nothing changes) → summary (date made, accounts, transactions, date range) → "Replace all current data". A database copy is
+  taken just before the replace (`AppContainer.safetyCopy`: WAL checkpoint, then the encrypted file into `premigration/`, last 2
+  kept).
+- **Delete all (UC-31):** acknowledgement checkbox plus the app PIN (`AppLockController.confirmPin`, which shares the unlock
+  lockout counter). The wipe closes the database and deletes the database files (incl. `-wal`/`-shm`), everything in
+  `noBackupFilesDir` (database key file, PIN files, local copies), `filesDir` and `cacheDir`, deletes both Keystore keys
+  (`fw_db_wrap_v1`, `fw_pin_v1`) and the reminder alarm, then restarts the process so the app begins at PIN setup.
+- **Known limitation:** Compose text fields hold the passphrase and PIN as `String`, which cannot be wiped from memory; the
+  data layer wipes its own `CharArray` copies. The window is limited to while the screen is open.

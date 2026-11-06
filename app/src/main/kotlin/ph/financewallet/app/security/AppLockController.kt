@@ -96,6 +96,25 @@ class AppLockController(
         }
     }
 
+    /**
+     * Re-checks the PIN for a sensitive action (UC-31 delete all data) without changing the lock state. Failures count
+     * towards the same lockout as unlocking, so this cannot be used to guess the PIN faster. The [pin] array is wiped.
+     */
+    @Synchronized
+    fun confirmPin(pin: CharArray): Boolean {
+        try {
+            val lockout = store.loadLockout()
+            val t = now()
+            if (LockoutPolicy.isLocked(lockout, t)) return false
+            val record = store.load() ?: return false
+            val ok = hasher.verify(pin, record)
+            store.saveLockout(if (ok) LockoutPolicy.onSuccess() else LockoutPolicy.onFailure(lockout, t))
+            return ok
+        } finally {
+            pin.fill('\u0000')
+        }
+    }
+
     /** Called after a successful BIOMETRIC_STRONG authentication. Does not bypass an active lockout. */
     @Synchronized
     fun onBiometricSuccess(): LockState {

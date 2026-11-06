@@ -64,6 +64,8 @@ data class HomeState(
     val hasAccounts: Boolean = false,
     /** Unpaid bills due in the next 7 days or overdue (never counted as paid until a transaction is linked). */
     val upcomingBills: List<ph.financewallet.data.advanced.UpcomingItem> = emptyList(),
+    /** R-10: there are transactions but no backup, or the last one is older than 30 days. */
+    val backupDue: Boolean = false,
 )
 
 class HomeViewModel(
@@ -86,6 +88,8 @@ class HomeViewModel(
         val liabilities = balances.filter { it.first.accountClass == AccountClass.LIABILITY.name }.map { it.second }
         val inNetWorth = balances.filter { it.first.includeInNetWorth }.map { it.second }
         val month = s.ledger.summary(today.withDayOfMonth(1), today)[php]
+        val recent = s.transactions.page(limit = RECENT).items
+        val lastBackup = s.backup.lastBackupAt()
         return HomeState(
             loading = false,
             inAccounts = Money.sum(assets, php),
@@ -94,7 +98,8 @@ class HomeViewModel(
             freeMoney = s.goals.freeMoney(php),
             monthIncome = month?.income ?: Money.zero(php),
             monthSpending = month?.spending ?: Money.zero(php),
-            recent = s.transactions.page(limit = RECENT).items,
+            recent = recent,
+            backupDue = recent.isNotEmpty() && (lastBackup == null || s.ctx.nowMillis() - lastBackup > BACKUP_REMINDER_MS),
             hasAccounts = accounts.isNotEmpty(),
             upcomingBills =
                 s.recurring
@@ -114,6 +119,7 @@ class HomeViewModel(
         const val RECENT = 5
         const val BILLS_BACK = 31L
         const val BILLS_AHEAD = 7L
+        const val BACKUP_REMINDER_MS = 30L * 24 * 60 * 60 * 1000
     }
 }
 
@@ -122,6 +128,7 @@ fun HomeScreen(
     vm: HomeViewModel,
     onAddTransaction: () -> Unit,
     onBills: () -> Unit,
+    onBackup: () -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.refresh() }
@@ -133,6 +140,7 @@ fun HomeScreen(
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         item { SectionTitle(stringResource(R.string.home_title)) }
         if (!state.hasAccounts) item { Text(stringResource(R.string.home_no_accounts)) }
+        if (state.backupDue) item { BackupReminder(onBackup) }
         item { FigureCard(stringResource(R.string.home_in_accounts), state.inAccounts, stringResource(R.string.home_in_accounts_caption)) }
         item { FigureCard(stringResource(R.string.home_free_money), state.freeMoney, stringResource(R.string.home_free_money_caption)) }
         item { FigureCard(stringResource(R.string.home_owed), state.owed, stringResource(R.string.home_owed_caption)) }
@@ -158,6 +166,18 @@ fun HomeScreen(
         if (state.recent.isNotEmpty()) item { SectionTitle(stringResource(R.string.home_recent)) }
         items(state.recent, key = { it.id }) { t ->
             LabeledRow(t.description.ifBlank { t.categoryNames.joinToString(", ").ifBlank { t.accountName } }) { AmountText(t.amount) }
+        }
+    }
+}
+
+@Composable
+private fun BackupReminder(onBackup: () -> Unit) {
+    val spacing = LocalSpacing.current
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            Text(stringResource(R.string.home_backup_due), style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.home_backup_due_caption), style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = onBackup) { Text(stringResource(R.string.backup_title)) }
         }
     }
 }
@@ -287,11 +307,15 @@ fun MoreScreen(
     onImport: () -> Unit,
     onImportHistory: () -> Unit,
     onRules: () -> Unit,
+    onInsights: () -> Unit,
+    onBackup: () -> Unit,
+    onPrivacy: () -> Unit,
 ) {
     val spacing = LocalSpacing.current
     Column(Modifier.fillMaxSize().padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         SectionTitle(stringResource(R.string.nav_more))
         listOf(
+            R.string.insights_title to onInsights,
             R.string.import_title to onImport,
             R.string.reports_title to onReports,
             R.string.bills_title to onBills,
@@ -301,9 +325,10 @@ fun MoreScreen(
             R.string.categories_title to onCategories,
             R.string.rules_title to onRules,
             R.string.import_history_title to onImportHistory,
+            R.string.backup_title to onBackup,
+            R.string.privacy_title to onPrivacy,
         ).forEach { (label, action) ->
             OutlinedButton(onClick = action, modifier = Modifier.fillMaxWidth()) { Text(stringResource(label)) }
         }
-        Text(stringResource(R.string.more_not_built), style = MaterialTheme.typography.bodySmall)
     }
 }

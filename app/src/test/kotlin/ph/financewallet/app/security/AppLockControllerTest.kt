@@ -89,6 +89,21 @@ class AppLockControllerTest {
     }
 
     @Test
+    fun `confirming the PIN for delete-all keeps the state and shares the lockout`() {
+        val c = controller()
+        c.enter("111222")
+        c.enter("111222")
+        val right = "111222".toCharArray()
+        assertTrue(c.confirmPin(right))
+        assertTrue(right.all { it == '\u0000' })
+        assertEquals(LockState.Unlocked, c.state)
+        repeat(LockoutPolicy.FREE_ATTEMPTS + 1) { assertEquals(false, c.confirmPin("000000".toCharArray())) }
+        assertEquals("locked out: even the right PIN is refused", false, c.confirmPin("111222".toCharArray()))
+        c.lockNow()
+        assertTrue("the unlock screen sees the same lockout", c.enter("111222") is LockState.Locked)
+    }
+
+    @Test
     fun `submitted PIN buffers are wiped`() {
         val c = controller()
         val pin = "246810".toCharArray()

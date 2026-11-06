@@ -7,12 +7,14 @@ import ph.financewallet.data.advanced.CsvExporter
 import ph.financewallet.data.advanced.DebtService
 import ph.financewallet.data.advanced.RecurringService
 import ph.financewallet.data.advanced.ReportService
+import ph.financewallet.data.backup.BackupService
 import ph.financewallet.data.budget.AllocationService
 import ph.financewallet.data.budget.BudgetService
 import ph.financewallet.data.budget.GoalService
 import ph.financewallet.data.db.FinanceDatabase
 import ph.financewallet.data.imports.CategoryRuleService
 import ph.financewallet.data.imports.ImportService
+import ph.financewallet.data.insight.InsightsService
 import ph.financewallet.data.ledger.LedgerService
 import ph.financewallet.data.ledger.TransactionQueries
 import ph.financewallet.data.ledger.WriteContext
@@ -27,6 +29,8 @@ import java.time.Clock
 class AppServices(
     val db: FinanceDatabase,
     val ctx: WriteContext,
+    appVersion: Int = 1,
+    safetyCopy: (suspend () -> Unit)? = null,
 ) {
     val ledger = LedgerService(db, ctx)
     val accounts = AccountService(db, ctx, ledger)
@@ -45,6 +49,12 @@ class AppServices(
     val imports = ImportService(db, ctx, ledger, { android.util.Xml.newPullParser() })
     val rules = CategoryRuleService(db, ctx)
 
+    /** Encrypted backup and restore, plaintext export (UC-29/30). */
+    val backup = BackupService(db, ctx, appVersion, safetyCopy)
+
+    /** On-device insights (ADR-0012): read-only, nothing leaves the phone. */
+    val insights = InsightsService(db, ctx, ledger, reports, recurring, goals)
+
     /** A fresh idempotency key for one user action (TXN-09: a double tap saves once). */
     fun newKey(): String = ctx.ids.newId()
 
@@ -53,10 +63,12 @@ class AppServices(
         suspend fun create(
             db: FinanceDatabase,
             clock: Clock = Clock.systemUTC(),
+            appVersion: Int = 1,
+            safetyCopy: (suspend () -> Unit)? = null,
         ): AppServices {
             val ids = UuidV7Generator(clock)
             val deviceId = db.deviceId(ids::newId)
-            return AppServices(db, WriteContext(clock, ids, deviceId)).also { it.ledger.ensureSystemAccounts() }
+            return AppServices(db, WriteContext(clock, ids, deviceId), appVersion, safetyCopy).also { it.ledger.ensureSystemAccounts() }
         }
     }
 }
