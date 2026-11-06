@@ -3,6 +3,7 @@
 > **SCOPE AMENDMENTS (owner decisions; these override conflicting text below)**
 > - 2026-11-05: **Android only.** iOS development is dropped. See `docs/adr/0009-scope-android-only.md`.
 > - 2026-11-05: **No direct bank/e-wallet/aggregator API integrations.** Data enters only by manual entry or file import (CSV, Excel, PDF). Sections 6 and 15 apply only as they relate to file import and device backup/sync. See `docs/adr/0006-integration-strategy.md`.
+> - 2026-11-06: **No cloud features and no external AI.** Cloud backup and multi-device synchronization are removed from scope; backup is the encrypted file of ADR-0011 only, and the app never uses the network. The AI assistant (section 14) is replaced by deterministic on-device insights. Sections 14 and 15 apply only as far as they concern local storage, file backup and on-device insights. See `docs/adr/0012-no-cloud-on-device-insights.md`.
 
 ## 1. YOUR ROLE AND RESPONSIBILITY
 

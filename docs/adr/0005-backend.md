@@ -1,6 +1,6 @@
 # ADR-0005: Optional backend for backup, sync and AI only: Ktor + PostgreSQL
 
-- **Status:** **Accepted** (2026-11-05). Approved by owner with Phase 1
+- **Status:** **Superseded by [ADR-0012](0012-no-cloud-on-device-insights.md)** (2026-11-06): cloud features dropped by the owner. Previously Accepted (2026-11-05).
 - **Requirements:** BAK-02, SYNC-01, AI-01, SEC-02
 
 ## Context

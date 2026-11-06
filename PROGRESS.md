@@ -20,7 +20,8 @@ _Last updated: 2026-11-05_
 | 4. Core financial engine | **Steps 4.1–4.9 implemented and tested on the JVM**; device-only criteria (performance, Maestro journeys 1–9) deferred to Phase 8 by owner. Awaiting owner review before Phase 5 | [milestone plan](docs/milestones/phase-4-core-engine.md) |
 | 5. Advanced finance | **Steps 5.1–5.5 implemented and tested on the JVM** (2026-11-06); device-only checks reserved for Phase 8. Awaiting owner review before Phase 6 | [milestone plan](docs/milestones/phase-5-advanced-finance.md) |
 | 6. Statement import | **Steps 6.1–6.5 implemented and tested on the JVM** (2026-11-06): generic CSV/XLSX; PDF refused until a verified layout exists; device checks reserved for Phase 8. Awaiting owner review before Phase 7 | [milestone plan](docs/milestones/phase-6-statement-import.md) |
-| 7–9 | Planned | — |
+| 7. Backup, privacy, insights | **In progress** (owner approved 2026-11-06; cloud/sync dropped and AI replaced by on-device insights, ADR-0012) | [milestone plan](docs/milestones/phase-7-backup-privacy-insights.md) |
+| 8–9 | Planned | — |
 
 ## Phase 1 deliverables
 
@@ -134,6 +135,7 @@ Phase 3 code exists (see above). Feature rows below reflect it.
 | 2026-11-05 | Stack: native Kotlin + Compose, Room + SQLCipher, Long minor units, double-entry + allocation ledgers, optional Ktor backend, Gradle/JUnit5/Kotest/Maestro | ADR-0001..0005, 0007, 0008 (**Accepted** by owner) |
 | 2026-11-05 | Open-question defaults adopted as assumptions (Q-05..Q-09, Q-12, Q-13, Q-17..Q-19, Q-21) | 02-open-questions.md |
 | 2026-11-05 | Added SEMI_MONTHLY budget period (BUD-01 amendment, PH paydays) | 10-domain-model.md §5.1 |
+| 2026-11-06 | **Owner:** no cloud backup, no multi-device sync, no external AI; on-device insights instead | ADR-0012 (Accepted) |
 | 2026-11-06 | Import: in-house RFC 4180 CSV reader instead of Commons CSV (avoids commons-io/codec at runtime); no PDF layout until verified with real samples; XmlPullParser compile-only, kxml2 for tests | phase-6 plan §3 |
 | 2026-11-06 | TextNormalizer moved to `:domain` so ledger `*_norm` columns and import fingerprints share one implementation | domain/text |
 | 2026-11-06 | An asset has one value per day: a new value for the same date supersedes the earlier one (soft-deleted, kept) | AssetService.addValuation |

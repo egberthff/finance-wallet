@@ -176,9 +176,9 @@ INT-01, INT-03, INT-04, and INT-05 are withdrawn.
 | LOC-03 | Every multi-row financial write is atomic (single DB transaction). | P0 |
 | LOC-04 | Versioned, forward-only migrations with pre-migration automatic backup. | P0 |
 | BAK-01 | Manual encrypted export/backup file (user-held passphrase) and restore. | P0 |
-| BAK-02 | Optional cloud backup, end-to-end encrypted (server stores only ciphertext). | P1 |
-| SYNC-01 | Optional multi-device sync between the user's Android devices, E2E encrypted, with device authorization and revocation. | P2 |
-| SYNC-02 | Conflict handling uses deterministic rules (see architecture). Financial conflicts never resolve silently by last-write-wins; conflicts the rules cannot settle are shown to the user. | P2 |
+| ~~BAK-02~~ | ~~Optional cloud backup, end-to-end encrypted.~~ **Removed 2026-11-06 (ADR-0012).** | — |
+| ~~SYNC-01~~ | ~~Optional multi-device sync.~~ **Removed 2026-11-06 (ADR-0012).** Moving to a new phone = restore a backup file. | — |
+| ~~SYNC-02~~ | ~~Sync conflict handling.~~ **Removed 2026-11-06 (ADR-0012).** | — |
 
 ### 2.13 Security & privacy (SEC / PRIV)
 | ID | Requirement | Pri |
@@ -195,10 +195,13 @@ INT-01, INT-03, INT-04, and INT-05 are withdrawn.
 ### 2.14 AI assistant (AI)
 | ID | Requirement | Pri |
 |---|---|---|
-| AI-01 | Disabled by default. The user opts in through an explicit consent screen naming the provider and the data sent. | P2 |
-| AI-02 | Totals are computed locally. The AI receives only the aggregated, minimized data needed and only explains or summarizes it. | P2 |
-| AI-03 | AI can never create, modify, or delete records, only propose changes that the user confirms. | P2 |
-| AI-04 | Predictions labeled as estimates. | P2 |
+| ~~AI-01~~ | Replaced by INS-01..03 (ADR-0012). | — |
+| ~~AI-02~~ | Replaced by INS-01..03 (ADR-0012). | — |
+| ~~AI-03~~ | Replaced by INS-01..03 (ADR-0012). | — |
+| ~~AI-04~~ | Replaced by INS-01..03 (ADR-0012). | — |
+| INS-01 | On-device insights computed by deterministic code from the user's records: spending change vs. the previous period by category, unusual transactions, largest categories, bills due soon vs. free money, estimated saving capacity. No network. | P1 |
+| INS-02 | Every insight shows the figures it is based on; estimates and projections are labeled as estimates. | P1 |
+| INS-03 | Insights never create, modify or delete records. | P1 |
 
 ### 2.15 UX (UX)
 | ID | Requirement | Pri |
@@ -257,7 +260,7 @@ Each criterion is testable. The test ID column shows where its test will live on
 2. With `FLAG_SECURE` enabled, the recents screen and screenshots show no financial data.
 3. Repository secret scan passes in CI.
 
-### AC-SYNC: Sync (Phase 7 exit)
+### ~~AC-SYNC: Sync~~ (removed 2026-11-06, ADR-0012; kept for history)
 1. Two devices offline each add 100 transactions, then sync. Both end with 200 transactions and identical balances.
 2. Concurrent edits to the same transaction's amount produce a visible conflict, not a silent overwrite.
 3. Server database contains no plaintext financial fields (verified by inspection test).

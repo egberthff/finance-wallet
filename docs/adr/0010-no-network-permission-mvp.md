@@ -14,7 +14,7 @@ Consequences:
 - no cloud crash reporting (crash logs stay on-device and are shared only by explicit user action, as a file via the share sheet);
 - no remote config or analytics;
 - the Play Data-safety form can truthfully state that no data is collected or shared.
-Phase 7 cloud features, if approved, add the permission through a new ADR.
+Phase 7 cloud features, if approved, add the permission through a new ADR. **Update 2026-11-06 (ADR-0012):** cloud features were dropped; this decision now applies to every release, not only the MVP.
 
 ## Alternatives considered
 Allow INTERNET for crash reporting only: better crash visibility, but it weakens the strongest privacy guarantee and requires a data-processing disclosure.
