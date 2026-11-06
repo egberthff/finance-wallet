@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -36,6 +37,12 @@ import ph.financewallet.app.ui.home.CategoriesViewModel
 import ph.financewallet.app.ui.home.HomeScreen
 import ph.financewallet.app.ui.home.HomeViewModel
 import ph.financewallet.app.ui.home.MoreScreen
+import ph.financewallet.app.ui.imports.ImportHistoryScreen
+import ph.financewallet.app.ui.imports.ImportHistoryViewModel
+import ph.financewallet.app.ui.imports.ImportScreen
+import ph.financewallet.app.ui.imports.ImportViewModel
+import ph.financewallet.app.ui.imports.RulesScreen
+import ph.financewallet.app.ui.imports.RulesViewModel
 import ph.financewallet.app.ui.transactions.EntryScreen
 import ph.financewallet.app.ui.transactions.EntryViewModel
 import ph.financewallet.app.ui.transactions.TransactionsScreen
@@ -49,6 +56,9 @@ private const val DEBTS = "debts"
 private const val BILLS = "bills"
 private const val ASSETS = "assets"
 private const val REPORTS = "reports"
+private const val IMPORT = "import"
+private const val IMPORT_HISTORY = "import-history"
+private const val RULES = "rules"
 
 @Composable
 fun AppNavigation(services: AppServices) {
@@ -71,43 +81,8 @@ fun AppNavigation(services: AppServices) {
         },
     ) { padding ->
         NavHost(nav, startDestination = TopLevel.HOME.route, modifier = Modifier.padding(padding)) {
-            composable(TopLevel.HOME.route) {
-                HomeScreen(
-                    viewModel { HomeViewModel(services) },
-                    onAddTransaction = { nav.navigate(ENTRY) },
-                    onBills = { nav.navigate(BILLS) },
-                )
-            }
-            composable(TopLevel.TRANSACTIONS.route) {
-                TransactionsScreen(
-                    viewModel { TransactionsViewModel(services) },
-                    onAdd = { nav.navigate(ENTRY) },
-                    onEdit = { id -> nav.navigate("$EDIT/$id") },
-                )
-            }
-            composable(TopLevel.BUDGETS.route) { BudgetsScreen(viewModel { BudgetsViewModel(services) }, services::newKey) }
-            composable(TopLevel.ACCOUNTS.route) { AccountsScreen(viewModel { AccountsViewModel(services) }, services::newKey) }
-            composable(TopLevel.MORE.route) {
-                MoreScreen(
-                    onGoals = { nav.navigate(GOALS) },
-                    onCategories = { nav.navigate(CATEGORIES) },
-                    onDebts = { nav.navigate(DEBTS) },
-                    onBills = { nav.navigate(BILLS) },
-                    onAssets = { nav.navigate(ASSETS) },
-                    onReports = { nav.navigate(REPORTS) },
-                )
-            }
-            composable(ENTRY) { EntryScreen(viewModel { EntryViewModel(services) }, onDone = { nav.popBackStack() }) }
-            composable("$EDIT/{txnId}") { entry ->
-                val id = entry.arguments?.getString("txnId")
-                EntryScreen(viewModel { EntryViewModel(services) }, onDone = { nav.popBackStack() }, editTxnId = id)
-            }
-            composable(GOALS) { GoalsScreen(viewModel { GoalsViewModel(services) }, services::newKey) }
-            composable(CATEGORIES) { CategoriesScreen(viewModel { CategoriesViewModel(services) }) }
-            composable(DEBTS) { DebtsScreen(viewModel { DebtsViewModel(services) }, services::newKey) }
-            composable(BILLS) { BillsScreen(viewModel { BillsViewModel(services) }, services::newKey) }
-            composable(ASSETS) { AssetsScreen(viewModel { AssetsViewModel(services) }) }
-            composable(REPORTS) { ReportsScreen(viewModel { ReportsViewModel(services) }) }
+            topLevelRoutes(nav, services)
+            featureRoutes(nav, services)
         }
     }
 }
@@ -118,3 +93,60 @@ private fun NavHostController.goTopLevel(route: String) =
         launchSingleTop = true
         restoreState = true
     }
+
+/** The five bottom-bar destinations (UX-02). */
+private fun NavGraphBuilder.topLevelRoutes(
+    nav: NavHostController,
+    services: AppServices,
+) {
+    composable(TopLevel.HOME.route) {
+        HomeScreen(
+            viewModel { HomeViewModel(services) },
+            onAddTransaction = { nav.navigate(ENTRY) },
+            onBills = { nav.navigate(BILLS) },
+        )
+    }
+    composable(TopLevel.TRANSACTIONS.route) {
+        TransactionsScreen(
+            viewModel { TransactionsViewModel(services) },
+            onAdd = { nav.navigate(ENTRY) },
+            onEdit = { id -> nav.navigate("$EDIT/$id") },
+        )
+    }
+    composable(TopLevel.BUDGETS.route) { BudgetsScreen(viewModel { BudgetsViewModel(services) }, services::newKey) }
+    composable(TopLevel.ACCOUNTS.route) { AccountsScreen(viewModel { AccountsViewModel(services) }, services::newKey) }
+    composable(TopLevel.MORE.route) {
+        MoreScreen(
+            onGoals = { nav.navigate(GOALS) },
+            onCategories = { nav.navigate(CATEGORIES) },
+            onDebts = { nav.navigate(DEBTS) },
+            onBills = { nav.navigate(BILLS) },
+            onAssets = { nav.navigate(ASSETS) },
+            onReports = { nav.navigate(REPORTS) },
+            onImport = { nav.navigate(IMPORT) },
+            onImportHistory = { nav.navigate(IMPORT_HISTORY) },
+            onRules = { nav.navigate(RULES) },
+        )
+    }
+}
+
+/** Screens opened from a tab or from More. */
+private fun NavGraphBuilder.featureRoutes(
+    nav: NavHostController,
+    services: AppServices,
+) {
+    composable(ENTRY) { EntryScreen(viewModel { EntryViewModel(services) }, onDone = { nav.popBackStack() }) }
+    composable("$EDIT/{txnId}") { entry ->
+        val id = entry.arguments?.getString("txnId")
+        EntryScreen(viewModel { EntryViewModel(services) }, onDone = { nav.popBackStack() }, editTxnId = id)
+    }
+    composable(GOALS) { GoalsScreen(viewModel { GoalsViewModel(services) }, services::newKey) }
+    composable(CATEGORIES) { CategoriesScreen(viewModel { CategoriesViewModel(services) }) }
+    composable(DEBTS) { DebtsScreen(viewModel { DebtsViewModel(services) }, services::newKey) }
+    composable(BILLS) { BillsScreen(viewModel { BillsViewModel(services) }, services::newKey) }
+    composable(ASSETS) { AssetsScreen(viewModel { AssetsViewModel(services) }) }
+    composable(REPORTS) { ReportsScreen(viewModel { ReportsViewModel(services) }) }
+    composable(IMPORT) { ImportScreen(viewModel { ImportViewModel(services) }) }
+    composable(IMPORT_HISTORY) { ImportHistoryScreen(viewModel { ImportHistoryViewModel(services) }) }
+    composable(RULES) { RulesScreen(viewModel { RulesViewModel(services) }) }
+}

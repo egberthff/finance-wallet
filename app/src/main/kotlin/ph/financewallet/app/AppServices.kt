@@ -11,6 +11,8 @@ import ph.financewallet.data.budget.AllocationService
 import ph.financewallet.data.budget.BudgetService
 import ph.financewallet.data.budget.GoalService
 import ph.financewallet.data.db.FinanceDatabase
+import ph.financewallet.data.imports.CategoryRuleService
+import ph.financewallet.data.imports.ImportService
 import ph.financewallet.data.ledger.LedgerService
 import ph.financewallet.data.ledger.TransactionQueries
 import ph.financewallet.data.ledger.WriteContext
@@ -38,6 +40,10 @@ class AppServices(
     val recurring = RecurringService(db, ctx, ledger)
     val reports = ReportService(db, ledger)
     val csv = CsvExporter(db, ctx)
+
+    /** Statement import (UC-26..28); XLSX is parsed with the platform XML pull parser (DTDs refused, IMP-07). */
+    val imports = ImportService(db, ctx, ledger, { android.util.Xml.newPullParser() })
+    val rules = CategoryRuleService(db, ctx)
 
     /** A fresh idempotency key for one user action (TXN-09: a double tap saves once). */
     fun newKey(): String = ctx.ids.newId()

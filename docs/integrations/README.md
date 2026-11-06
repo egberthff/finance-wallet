@@ -6,7 +6,7 @@ The app makes **no** connection to any financial institution. This register now 
 A profile may be marked **Verified** only after parser fixture tests pass against **real (redacted) sample files** from that
 institution. A profile without real samples stays **Not started**, and users fall back to generic CSV/XLSX column mapping.
 
-_Last reviewed: 2026-11-05_
+_Last reviewed: 2026-11-06_
 
 | Institution | Export formats offered (to confirm with real samples) | Import profile status | Notes |
 |---|---|---|---|
@@ -16,7 +16,8 @@ _Last reviewed: 2026-11-05_
 | BPI | Unverified | Not started; needs samples | — |
 | UnionBank | Unverified | Not started; needs samples | — |
 | GoTyme | Unverified | Not started; needs samples | — |
-| Generic CSV / XLSX | Any | Planned (Phase 6, P0) | Manual column mapping; saved as a user profile |
+| Generic CSV / XLSX | Any | **Implemented, tested with synthetic files (Phase 6)**; not yet tried on real exports | Column mapping with suggestions, ambiguous dates chosen by the user, saved as a user profile matched by exact header signature |
+| PDF (any institution) | — | **Not supported**: every PDF is refused with a message until a layout passes the checklist below | PdfBox not added yet (+6 MB) |
 
 ## Import profile verification checklist
 1. At least 2 real redacted sample files per layout (ideally different months, including year boundary).

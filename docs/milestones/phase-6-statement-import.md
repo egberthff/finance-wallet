@@ -1,6 +1,6 @@
 # Milestone Plan: Phase 6, Statement Import
 
-| Status | **In progress** (owner approved "Proceed to Phase 6", 2026-11-06) |
+| Status | **Implemented (2026-11-06)**: steps 6.1–6.5 with JVM/Robolectric evidence for AC-IMP-1..5 and criteria 6–8 (PROGRESS.md). Not built: share-sheet entry (ACTION_SEND/VIEW). Device checks reserved for Phase 8. |
 |---|---|
 
 ## 1. Objectives

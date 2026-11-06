@@ -284,17 +284,23 @@ fun MoreScreen(
     onBills: () -> Unit,
     onAssets: () -> Unit,
     onReports: () -> Unit,
+    onImport: () -> Unit,
+    onImportHistory: () -> Unit,
+    onRules: () -> Unit,
 ) {
     val spacing = LocalSpacing.current
     Column(Modifier.fillMaxSize().padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         SectionTitle(stringResource(R.string.nav_more))
         listOf(
+            R.string.import_title to onImport,
             R.string.reports_title to onReports,
             R.string.bills_title to onBills,
             R.string.debts_title to onDebts,
             R.string.goals_title to onGoals,
             R.string.assets_title to onAssets,
             R.string.categories_title to onCategories,
+            R.string.rules_title to onRules,
+            R.string.import_history_title to onImportHistory,
         ).forEach { (label, action) ->
             OutlinedButton(onClick = action, modifier = Modifier.fillMaxWidth()) { Text(stringResource(label)) }
         }
