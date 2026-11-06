@@ -1,6 +1,6 @@
 # Database Schema, ERD & Migration Policy
 
-| Status | Phase 2 draft v1 (2026-11-05). Implemented schema version **3** (Phase 5) |
+| Status | Phase 2 draft v1 (2026-11-05). Implemented schema version **4** (Phase 6) |
 |---|---|
 | Engine | SQLite (SQLCipher 4.x) via Room 2.8 (ADR-0002) |
 | Semantics | [10-domain-model.md](10-domain-model.md) |
@@ -24,6 +24,14 @@
 >    a foreign key to an existing column would need the 12-step rebuild of `txn`.
 > 3. Extra triggers: `CK_OCC_PAID_LINK` (an occurrence is PAID exactly when a transaction is linked, BILL-02) and
 >    `CK_RULE_AUTO_POST_KIND` (only RECURRING_TXN rules may auto-post, INC-03).
+
+> **Implementation notes (Phase 6, schema v4, 2026-11-06)**
+> 1. **Migration 3→4** adds `import_profile`, `import_batch`, `import_row`, `txn_fingerprint` (§3.7) and `category_rule` (§3.8) with their
+>    CHECK triggers, including `CK_BATCH_COUNTS` (rows_total = imported + duplicate + rejected + skipped) and `CK_BATCH_ROLLBACK`
+>    (ROLLED_BACK exactly when rolled_back_at is set). Additive only.
+> 2. The deferred references `txn.import_batch_id` and `reconciliation.import_batch_id` are checked by triggers
+>    (`CK_TXN_IMPORT_BATCH_REF`, `CK_RECON_IMPORT_BATCH_REF`), avoiding a rebuild of `txn` and `reconciliation`.
+> 3. Category-rule trigger codes use the prefix `CK_CATRULE_*` to keep them apart from recurring-rule codes (`CK_RULE_*`).
 
 The DDL below is the **reference**. Room entities must produce an equivalent schema, and Phase 3 adds a test that compares the
 Room-exported schema JSON with this document's table/column/index list.

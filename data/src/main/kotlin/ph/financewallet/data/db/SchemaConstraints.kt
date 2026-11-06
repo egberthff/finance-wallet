@@ -230,6 +230,47 @@ internal object SchemaConstraints {
             ),
         )
 
+    /** Schema v4: statement import and categorization rules (docs/11-database-schema.md §3.7–3.8). */
+    private val V4_CHECKS =
+        listOf(
+            Check("import_profile", "CK_PROFILE_NAME", "length(trim(NEW.name)) NOT BETWEEN 1 AND 80"),
+            Check("import_profile", "CK_PROFILE_FORMAT", enumIn("format", "CSV", "XLSX", "PDF")),
+            Check("import_profile", "CK_PROFILE_BUILTIN", bool("builtin")),
+            Check("import_batch", "CK_BATCH_FORMAT", enumIn("format", "CSV", "XLSX", "PDF")),
+            Check("import_batch", "CK_BATCH_STATUS", enumIn("status", "COMMITTED", "ROLLED_BACK")),
+            Check("import_batch", "CK_BATCH_SHA256", "length(NEW.file_sha256) <> 64"),
+            Check(
+                "import_batch",
+                "CK_BATCH_COUNTS",
+                "NEW.rows_total <> NEW.rows_imported + NEW.rows_duplicate + NEW.rows_rejected + NEW.rows_skipped_by_user " +
+                    "OR NEW.rows_imported < 0 OR NEW.rows_duplicate < 0 OR NEW.rows_rejected < 0 OR NEW.rows_skipped_by_user < 0",
+            ),
+            Check("import_batch", "CK_BATCH_ROLLBACK", "(NEW.status = 'ROLLED_BACK') <> (NEW.rolled_back_at IS NOT NULL)"),
+            Check("import_row", "CK_IMPORT_ROW_OUTCOME", enumIn("outcome", "IMPORTED", "DUPLICATE", "REJECTED", "SKIPPED")),
+            Check("import_row", "CK_IMPORT_ROW_TXN", "NEW.outcome = 'IMPORTED' AND NEW.txn_id IS NULL"),
+            Check("category_rule", "CK_CATRULE_FIELD", enumIn("match_field", "DESCRIPTION", "MERCHANT", "ANY_TEXT")),
+            Check("category_rule", "CK_CATRULE_OP", enumIn("match_op", "EQUALS", "CONTAINS", "STARTS_WITH")),
+            Check("category_rule", "CK_CATRULE_PATTERN", "length(NEW.pattern_norm) NOT BETWEEN 1 AND 120"),
+            Check("category_rule", "CK_CATRULE_MODE", enumIn("mode", "SUGGEST", "AUTO")),
+            Check("category_rule", "CK_CATRULE_ENABLED", bool("enabled")),
+            Check(
+                "category_rule",
+                "CK_CATRULE_RANGE",
+                "NEW.min_minor IS NOT NULL AND NEW.max_minor IS NOT NULL AND NEW.min_minor > NEW.max_minor",
+            ),
+            // Deferred references from v1/v2 columns (see Migrations.MIGRATION_3_4).
+            Check(
+                "txn",
+                "CK_TXN_IMPORT_BATCH_REF",
+                "NEW.import_batch_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM import_batch b WHERE b.id = NEW.import_batch_id)",
+            ),
+            Check(
+                "reconciliation",
+                "CK_RECON_IMPORT_BATCH_REF",
+                "NEW.import_batch_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM import_batch b WHERE b.id = NEW.import_batch_id)",
+            ),
+        )
+
     /** Append-only tables: updates and deletes are rejected (SEC-04, TXN-06). */
     private val APPEND_ONLY_V1 = listOf("txn_revision", "audit_event")
 
@@ -265,6 +306,9 @@ internal object SchemaConstraints {
     /** Triggers added by migration 2→3. */
     val v3Statements: List<String> = checkTriggers(V3_CHECKS)
 
+    /** Triggers added by migration 3→4. */
+    val v4Statements: List<String> = checkTriggers(V4_CHECKS)
+
     /** Every trigger statement of the current schema, for new databases. */
-    val allStatements: List<String> get() = v1Statements + v2Statements + v3Statements
+    val allStatements: List<String> get() = v1Statements + v2Statements + v3Statements + v4Statements
 }

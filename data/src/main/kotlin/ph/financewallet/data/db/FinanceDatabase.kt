@@ -17,17 +17,22 @@ import ph.financewallet.data.db.entity.BudgetCategoryEntity
 import ph.financewallet.data.db.entity.BudgetEntity
 import ph.financewallet.data.db.entity.BudgetPeriodEntity
 import ph.financewallet.data.db.entity.CategoryEntity
+import ph.financewallet.data.db.entity.CategoryRuleEntity
 import ph.financewallet.data.db.entity.DebtEntity
 import ph.financewallet.data.db.entity.DebtScheduleItemEntity
 import ph.financewallet.data.db.entity.EntryEntity
 import ph.financewallet.data.db.entity.FinancialAccountEntity
 import ph.financewallet.data.db.entity.GoalAccountEntity
+import ph.financewallet.data.db.entity.ImportBatchEntity
+import ph.financewallet.data.db.entity.ImportProfileEntity
+import ph.financewallet.data.db.entity.ImportRowEntity
 import ph.financewallet.data.db.entity.LedgerAccountEntity
 import ph.financewallet.data.db.entity.OccurrenceEntity
 import ph.financewallet.data.db.entity.ReconciliationEntity
 import ph.financewallet.data.db.entity.RecurringRuleEntity
 import ph.financewallet.data.db.entity.SavingsGoalEntity
 import ph.financewallet.data.db.entity.TxnEntity
+import ph.financewallet.data.db.entity.TxnFingerprintEntity
 import ph.financewallet.data.db.entity.TxnRevisionEntity
 
 @Database(
@@ -59,6 +64,12 @@ import ph.financewallet.data.db.entity.TxnRevisionEntity
         AssetValuationEntity::class,
         RecurringRuleEntity::class,
         OccurrenceEntity::class,
+        // v4
+        ImportProfileEntity::class,
+        ImportBatchEntity::class,
+        ImportRowEntity::class,
+        TxnFingerprintEntity::class,
+        CategoryRuleEntity::class,
     ],
 )
 abstract class FinanceDatabase : RoomDatabase() {
@@ -73,7 +84,7 @@ abstract class FinanceDatabase : RoomDatabase() {
     abstract fun advancedDao(): ph.financewallet.data.advanced.AdvancedDao
 
     companion object {
-        const val SCHEMA_VERSION: Int = 3
+        const val SCHEMA_VERSION: Int = 4
         const val FILE_NAME: String = "finance.db"
 
         /**

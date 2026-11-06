@@ -37,12 +37,13 @@ class MigrationTest {
     }
 
     @Test
-    fun `migrations 1 to 3 keep v1 data and match the fresh-install schema`() =
+    fun `migrations 1 to 4 keep v1 data and match the fresh-install schema`() =
         runTest {
             helper.createDatabase(testDb, 1).use { v1 -> V1Fixture.populate(v1) }
 
             helper.runMigrationsAndValidate(testDb, 2, true, Migrations.MIGRATION_1_2).close()
-            val v2 = helper.runMigrationsAndValidate(testDb, 3, true, Migrations.MIGRATION_2_3)
+            helper.runMigrationsAndValidate(testDb, 3, true, Migrations.MIGRATION_2_3).close()
+            val v2 = helper.runMigrationsAndValidate(testDb, 4, true, Migrations.MIGRATION_3_4)
             assertEquals(V1Fixture.TXNS, count(v2, "txn"))
             assertEquals(V1Fixture.ENTRIES, count(v2, "entry"))
             assertEquals(V1Fixture.LEDGER_ACCOUNTS, count(v2, "ledger_account"))
@@ -119,6 +120,37 @@ class MigrationTest {
             occurrence("o4444", "PAID", "t3")
             assertRejected("CK_TXN_OCCURRENCE_REF") { db.execSQL("UPDATE txn SET recurring_occurrence_id = 'missing' WHERE id = 't2'") }
             db.execSQL("UPDATE txn SET recurring_occurrence_id = 'o1' WHERE id = 't2'")
+        }
+    }
+
+    @Test
+    fun `v4 triggers - batch counts add up, import references must exist`() {
+        helper.createDatabase(testDb, 1).use { v1 -> V1Fixture.populate(v1) }
+        helper.runMigrationsAndValidate(testDb, 2, true, Migrations.MIGRATION_1_2).close()
+        helper.runMigrationsAndValidate(testDb, 3, true, Migrations.MIGRATION_2_3).close()
+        helper.runMigrationsAndValidate(testDb, 4, true, Migrations.MIGRATION_3_4).use { db ->
+            fun batch(
+                id: String,
+                total: Int,
+            ) = db.execSQL(
+                "INSERT INTO import_batch(id, account_id, profile_id, file_name, file_sha256, file_size_bytes, format, status, " +
+                    "statement_start_date, statement_end_date, statement_closing_minor, rows_total, rows_imported, rows_duplicate, " +
+                    "rows_rejected, rows_skipped_by_user, committed_at, rolled_back_at, version, updated_at, updated_by_device, hlc) " +
+                    "VALUES ('$id', 'a1', NULL, 'x.csv', '${"0".repeat(
+                        64,
+                    )}', 10, 'CSV', 'COMMITTED', NULL, NULL, NULL, $total, 2, 1, 0, 0, " +
+                    "0, NULL, 1, 0, 'dev', 'h')",
+            )
+            assertRejected("CK_BATCH_COUNTS") { batch("bad", 4) }
+            batch("b1", 3)
+            assertRejected("CK_TXN_IMPORT_BATCH_REF") { db.execSQL("UPDATE txn SET import_batch_id = 'missing' WHERE id = 't2'") }
+            db.execSQL("UPDATE txn SET import_batch_id = 'b1' WHERE id = 't2'")
+            assertRejected("CK_IMPORT_ROW_TXN") {
+                db.execSQL(
+                    "INSERT INTO import_row(batch_id, row_no, outcome, txn_id, matched_txn_id, fingerprint, error_code) " +
+                        "VALUES ('b1', 2, 'IMPORTED', NULL, NULL, NULL, NULL)",
+                )
+            }
         }
     }
 

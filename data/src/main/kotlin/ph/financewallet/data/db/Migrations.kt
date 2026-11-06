@@ -34,7 +34,20 @@ object Migrations {
             }
         }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+    /**
+     * 3 → 4: statement import (import_profile, import_batch, import_row, txn_fingerprint) and categorization rules
+     * (category_rule). Additive only. The deferred references txn.import_batch_id and reconciliation.import_batch_id are
+     * enforced by triggers, because adding foreign keys to existing columns would need table rebuilds.
+     */
+    val MIGRATION_3_4: Migration =
+        object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                V4_TABLES.forEach(db::execSQL)
+                SchemaConstraints.v4Statements.forEach(db::execSQL)
+            }
+        }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
 
     private val V2_TABLES =
         listOf(
@@ -156,5 +169,55 @@ object Migrations {
             "CREATE UNIQUE INDEX `index_occurrence_rule_id_due_date` ON `occurrence` (`rule_id`, `due_date`)",
             "CREATE INDEX `ix_occurrence_due` ON `occurrence` (`due_date`, `status`)",
             "CREATE INDEX `index_occurrence_paid_txn_id` ON `occurrence` (`paid_txn_id`)",
+        )
+
+    private val V4_TABLES =
+        listOf(
+            "CREATE TABLE `import_profile` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `institution` TEXT, " +
+                "`format` TEXT NOT NULL, `layout_version` INTEGER NOT NULL DEFAULT 1, `builtin` INTEGER NOT NULL, " +
+                "`detection_json` TEXT, `mapping_json` TEXT NOT NULL, `created_at` INTEGER NOT NULL, " +
+                "`version` INTEGER NOT NULL DEFAULT 1, `updated_at` INTEGER NOT NULL, " +
+                "`updated_by_device` TEXT NOT NULL, `hlc` TEXT NOT NULL, PRIMARY KEY(`id`))",
+            "CREATE TABLE `import_batch` (`id` TEXT NOT NULL, `account_id` TEXT NOT NULL, `profile_id` TEXT, " +
+                "`file_name` TEXT NOT NULL, `file_sha256` TEXT NOT NULL, `file_size_bytes` INTEGER NOT NULL, " +
+                "`format` TEXT NOT NULL, `status` TEXT NOT NULL, `statement_start_date` TEXT, " +
+                "`statement_end_date` TEXT, `statement_closing_minor` INTEGER, `rows_total` INTEGER NOT NULL, " +
+                "`rows_imported` INTEGER NOT NULL, `rows_duplicate` INTEGER NOT NULL, " +
+                "`rows_rejected` INTEGER NOT NULL, `rows_skipped_by_user` INTEGER NOT NULL, " +
+                "`committed_at` INTEGER NOT NULL, `rolled_back_at` INTEGER, `version` INTEGER NOT NULL DEFAULT 1, " +
+                "`updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, `hlc` TEXT NOT NULL, " +
+                "PRIMARY KEY(`id`), " +
+                "FOREIGN KEY(`account_id`) REFERENCES `financial_account`(`ledger_account_id`) ON UPDATE NO ACTION " +
+                "ON DELETE NO ACTION , " +
+                "FOREIGN KEY(`profile_id`) REFERENCES `import_profile`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+            "CREATE INDEX `ix_batch_account` ON `import_batch` (`account_id`, `committed_at`)",
+            "CREATE INDEX `index_import_batch_profile_id` ON `import_batch` (`profile_id`)",
+            "CREATE TABLE `import_row` (`batch_id` TEXT NOT NULL, `row_no` INTEGER NOT NULL, " +
+                "`outcome` TEXT NOT NULL, `txn_id` TEXT, `matched_txn_id` TEXT, `fingerprint` TEXT, `error_code` TEXT, " +
+                "PRIMARY KEY(`batch_id`, `row_no`), " +
+                "FOREIGN KEY(`batch_id`) REFERENCES `import_batch`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                "FOREIGN KEY(`txn_id`) REFERENCES `txn`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , " +
+                "FOREIGN KEY(`matched_txn_id`) REFERENCES `txn`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+            "CREATE INDEX `index_import_row_txn_id` ON `import_row` (`txn_id`)",
+            "CREATE INDEX `index_import_row_matched_txn_id` ON `import_row` (`matched_txn_id`)",
+            "CREATE TABLE `txn_fingerprint` (`account_id` TEXT NOT NULL, `fingerprint` TEXT NOT NULL, " +
+                "`txn_id` TEXT NOT NULL, PRIMARY KEY(`account_id`, `fingerprint`), " +
+                "FOREIGN KEY(`account_id`) REFERENCES `financial_account`(`ledger_account_id`) ON UPDATE NO ACTION " +
+                "ON DELETE NO ACTION , " +
+                "FOREIGN KEY(`txn_id`) REFERENCES `txn`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+            "CREATE INDEX `ix_fp_txn` ON `txn_fingerprint` (`txn_id`)",
+            "CREATE TABLE `category_rule` (`id` TEXT NOT NULL, `priority` INTEGER NOT NULL, " +
+                "`match_field` TEXT NOT NULL, `match_op` TEXT NOT NULL, `pattern_norm` TEXT NOT NULL, " +
+                "`min_minor` INTEGER, `max_minor` INTEGER, `account_id` TEXT, `category_id` TEXT NOT NULL, " +
+                "`mode` TEXT NOT NULL, `enabled` INTEGER NOT NULL DEFAULT 1, `version` INTEGER NOT NULL DEFAULT 1, " +
+                "`updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, `hlc` TEXT NOT NULL, " +
+                "PRIMARY KEY(`id`), " +
+                "FOREIGN KEY(`account_id`) REFERENCES `financial_account`(`ledger_account_id`) ON UPDATE NO ACTION " +
+                "ON DELETE NO ACTION , " +
+                "FOREIGN KEY(`category_id`) REFERENCES `category`(`ledger_account_id`) ON UPDATE NO ACTION ON DELETE " +
+                "NO ACTION )",
+            "CREATE INDEX `ix_rule_priority` ON `category_rule` (`enabled`, `priority`)",
+            "CREATE INDEX `index_category_rule_account_id` ON `category_rule` (`account_id`)",
+            "CREATE INDEX `index_category_rule_category_id` ON `category_rule` (`category_id`)",
         )
 }
