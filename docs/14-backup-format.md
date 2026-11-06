@@ -4,6 +4,21 @@
 |---|---|
 | Requirements | BAK-01, LOC-04 (pre-migration backup), R-10, R-11 |
 
+> **Implementation notes (Phase 7, 2026-11-06)** — `data/.../backup/`
+> 1. Header and chunk format exactly as §2 (big-endian). A full-length chunk is final only if the file ends right after it, so
+>    truncation at a chunk boundary, reordering, duplication and appended data all fail authentication. Header bounds: Argon2id
+>    m 8–256 MiB, t ≤ 10, p ≤ 4; PBKDF2 100k–5M iterations; chunk 64 KiB–8 MiB.
+> 2. Payload values are typed strings (`"i:<integer>"`, `"s:<text>"`, `null`); the manifest lists each table's columns. Per-table
+>    SHA-256 is over the exact row lines. The ledger checksum covers every real account's balance (live transactions) and every goal's
+>    allocation.
+> 3. **Restore deviates from §4 steps 4 and 7** (approved with the Phase 7 plan): after a full verification pass, data is replaced inside the
+>    existing database in **one transaction** (append-only triggers dropped and recreated inside it, foreign keys deferred), then balances,
+>    allocations and IC-1..IC-8 are checked before commit. No second database file, no file swap, no key rotation. A copy of the current
+>    database is taken first. The restoring device keeps its own `device_id`.
+> 4. Backups from an older schema are accepted while all migrations are additive (1→4 are); a backup from a newer schema is refused.
+> 5. The pre-migration copies (§5 "automatic local") remain the raw SQLCipher file copy of Phase 4 (encrypted by the Keystore-wrapped
+>    database key), not this format.
+
 ## 1. Goals
 - Restorable on **another device** or after a factory reset. It does not depend on the Android Keystore.
 - Confidential and tamper-evident without the passphrase.
