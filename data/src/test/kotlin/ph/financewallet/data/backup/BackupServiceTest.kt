@@ -86,8 +86,10 @@ class BackupServiceTest {
     @After
     fun tearDown() = opened.forEach { it.close() }
 
-    /** A realistic database touching every table: ledger, budgets, goals, debts, assets, bills, import, rules, audit. */
-    // Test fixture: one step per table family; splitting it would only scatter the scenario.
+    /**
+     * A realistic database touching every table: ledger, budgets, goals, debts, assets, bills, import, rules, audit.
+     * LongMethod is suppressed: one step per table family; splitting it would only scatter the scenario.
+     */
     @Suppress("LongMethod")
     private suspend fun populate(
         db: FinanceDatabase,
