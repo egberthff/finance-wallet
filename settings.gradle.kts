@@ -17,5 +17,6 @@ dependencyResolutionManagement {
 rootProject.name = "finance-wallet"
 
 include(":domain")
+include(":importers")
 include(":data")
 include(":app")

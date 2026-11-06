@@ -27,6 +27,7 @@ import ph.financewallet.domain.ledger.TxnStatus
 import ph.financewallet.domain.ledger.TxnType
 import ph.financewallet.domain.money.CurrencyCode
 import ph.financewallet.domain.money.Money
+import ph.financewallet.domain.text.TextNormalizer
 import java.time.LocalDate
 
 /** User-entered header fields of a transaction (TXN-02). */
