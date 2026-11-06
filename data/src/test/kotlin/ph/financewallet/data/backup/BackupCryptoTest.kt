@@ -165,6 +165,13 @@ class BackupCryptoTest {
         assertEquals(PassphraseProblem.TOO_SHORT, PassphrasePolicy.check("short".toCharArray()))
         assertEquals(PassphraseProblem.TOO_COMMON, PassphrasePolicy.check("1234567890".toCharArray()))
         assertEquals(PassphraseProblem.TOO_COMMON, PassphrasePolicy.check("QWERTYUIOP".toCharArray()))
+        // A common word padded with digits/symbols to reach the length (found on the emulator, 2026-11-06).
+        assertEquals(PassphraseProblem.TOO_COMMON, PassphrasePolicy.check("password123".toCharArray()))
+        assertEquals(PassphraseProblem.TOO_COMMON, PassphrasePolicy.check("Iloveyou2024!".toCharArray()))
+        assertEquals(PassphraseProblem.TOO_COMMON, PassphrasePolicy.check("!!Sunshine99".toCharArray()))
+        // A padded short core is not over-matched; an uncommon word with digits is fine.
+        assertNull(PassphrasePolicy.check("ab1234567890xy".toCharArray()))
+        assertNull(PassphrasePolicy.check("jeepneyride2026".toCharArray()))
         assertEquals(PassphraseProblem.TOO_REPETITIVE, PassphrasePolicy.check("aaaaaaaaaaaa".toCharArray()))
         assertEquals(
             PassphraseProblem.MISMATCH,
@@ -172,6 +179,8 @@ class BackupCryptoTest {
         )
         assertNull(PassphrasePolicy.check("long enough phrase".toCharArray(), "long enough phrase".toCharArray()))
         assertTrue(PassphrasePolicy.commonCount >= 10_000) // SecLists 10k-most-common.txt: 10,001 distinct entries
+        // R8 renames PassphrasePolicy in release builds; only an absolute resource path survives that.
+        assertTrue(PassphrasePolicy.RESOURCE.startsWith("/ph/financewallet/data/backup/"))
         assertEquals(0, PassphrasePolicy.strength("password".toCharArray()))
         assertEquals(1, PassphrasePolicy.strength("bananaboat".toCharArray()))
         assertEquals(4, PassphrasePolicy.strength("Mango-Ripens-In-May-2027".toCharArray()))

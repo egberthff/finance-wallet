@@ -4,7 +4,7 @@ Single source of truth for implementation status (CLAUDE.md §20, §23).
 Statuses: **Planned · In progress · Implemented · Tested · Verified · Blocked · Unavailable · Out of scope**.
 Test statuses: **Not written · Written · Executed–Passed · Executed–Failed · Not executed**.
 
-_Last updated: 2026-11-05_
+_Last updated: 2026-11-07_
 
 ## Scope (owner decisions 2026-11-05)
 - **Android only.** iOS dropped ([ADR-0009](docs/adr/0009-scope-android-only.md)).
@@ -21,7 +21,8 @@ _Last updated: 2026-11-05_
 | 5. Advanced finance | **Steps 5.1–5.5 implemented and tested on the JVM** (2026-11-06); device-only checks reserved for Phase 8. Awaiting owner review before Phase 6 | [milestone plan](docs/milestones/phase-5-advanced-finance.md) |
 | 6. Statement import | **Steps 6.1–6.5 implemented and tested on the JVM** (2026-11-06): generic CSV/XLSX; PDF refused until a verified layout exists; device checks reserved for Phase 8. Awaiting owner review before Phase 7 | [milestone plan](docs/milestones/phase-6-statement-import.md) |
 | 7. Backup, privacy, insights | **Steps 7.1–7.5 implemented and tested on the JVM** (2026-11-06): encrypted .fwbak backup and verified restore, export, delete all, on-device insights; cloud/sync and AI dropped (ADR-0012); device checks reserved for Phase 8. Awaiting owner review before Phase 8 | [milestone plan](docs/milestones/phase-7-backup-privacy-insights.md) |
-| 8–9 | Planned | — |
+| 8. QA & release candidate | **Complete on emulators** (2026-11-07): checklist A–G on Android 13 (debug + release) and Android 11 (release); 8 defects found and fixed (D1–D8, incl. a release-only crash); 1.0.0-rc1 signed APK + AAB, 16 KB aligned. Physical phone run outstanding (USB debugging unavailable) | [QA report](docs/milestones/phase-8-quality-assurance.md#7-qa-report), [test state](docs/qa/test-state.md) |
+| 9. Production prep | **In progress**: deployment, backup/recovery, known-limitations, dev/testing guides and privacy-notice draft written; app icon, crash-log export, key-loss recovery implemented. Owner actions left: legal review, Play Console listing, closed testing | [deployment guide](docs/22-deployment-guide.md) |
 
 ## Phase 1 deliverables
 
@@ -68,7 +69,7 @@ are still **Not written**.
 | 6 | On device: launch, lock, FLAG_SECURE, DB unreadable without key (AC-SEC-1/2) | **Not executed** | No Android device connected yet (Q-16) |
 | 7 | Spikes recorded (SQLCipher perf; APK impact of fastexcel/PdfBox/BouncyCastle) | **Partially met** | [docs/spikes/apk-size.md](docs/spikes/apk-size.md): baseline release 9.36 MB; BouncyCastle +31 KB; PdfBox +6.0 MB; fastexcel fails R8 → in-house XLSX reader. **SQLCipher perf needs device** |
 
-Test totals (latest full `check`): **253 executed, 253 passed, 0 failed, 0 skipped** (`:domain` 113, `:importers` 20, `:data` 87, `:app` 33).
+Test totals (latest full `check`): **287 executed, 287 passed, 0 failed, 0 skipped** (`:domain` 117, `:importers` 20, `:data` 104, `:app` 46), 2026-11-07 on Temurin 21.
 
 > **Correction (2026-11-05).** Earlier reports in this file (59 and 60 tests, "properties passed") were wrong for 4 property
 > tests: `AllocationTest` ×2, `MoneyParserFormatterTest` ×1, and `PeriodCalculatorTest` (fixed-length). They were written as
@@ -81,6 +82,7 @@ Known issues:
 - A Gradle deprecation warning (`Configuration.setVisible`) originates in a third-party plugin, not in project build scripts. Harmless until Gradle 11.
 - Robolectric needs `--add-exports java.base/jdk.internal.access` on JDK 21 (test JVM only).
 - The CI workflow is written but has never run (no remote).
+- UI redesign 2026-11-06: full colour scheme (no library defaults), icon set (Material path data), launcher icon, hero card, grouped More screen, back bar on sub-screens, edge-to-edge. Screenshots from the emulator were used to review it.
 
 ## Feature matrix
 
@@ -102,18 +104,8 @@ Phase 3 code exists (see above). Feature rows below reflect it.
 | Import parsing and normalization (`:importers`) | IMP-01/02/03/06/07, TXN-09, AC-IMP-2/5 | 6.1/6.2 | **Implemented + tested (JVM)**: new pure-JVM module; file guard (size, content-based format, OLE/.xls refused, PDF refused until a layout is verified), encoding detection (BOM, strict UTF-8, Windows-1252), in-house RFC 4180 CSV reader with delimiter sniffing, streaming XLSX reader (shared/inline strings, exact numbers, 1900/1904 dates, cached formulas, zip-bomb and DTD guards), mapping suggestion (debit/credit, signed, amount+type), date detection that never guesses day vs month, exact amounts, per-row rejection codes, running-balance check, fingerprints | importers/src/main | Executed–Passed: ReadersTest 11 (incl. CSV round-trip property ×500, zip bomb, DTD), NormalizerTest 9 (incl. AC-IMP-5 CSV = XLSX, overlapping-statement fingerprints); coverage 99.1 % | Real institution layouts need samples (Q-11) |
 | Schema v4 + import use cases | IMP-01..10, CAT-03, UC-15/26/27/28, AC-IMP-1..4 | 6.3/6.4 | **Implemented + tested (Robolectric)**: migration 3→4 (import_profile/batch/row, txn_fingerprint, category_rule, reference triggers); ImportService preview (exact duplicates by fingerprint, probable duplicates by amount/±3 days/similarity or reference, one match per transaction, suggestions from rules then 12-month history), commit in one transaction with account-version check (stale preview refused, double commit impossible), decisions import/transfer/link/skip/import-anyway, pending rows, rollback with IMPORT_ROLLBACK revisions and fingerprint removal, edited-after-import confirmation, history, saved profiles matched by exact header signature; CategoryRuleService | data/src/main/.../imports | Executed–Passed: ImportServiceTest 10 (AC-IMP-1..4, XLSX through the Android XML parser), MigrationTest 4 | Reconciliation hand-off and UI in 6.5 |
 | Import screens (6.5) | IMP-04/05/07/10, CAT-03 | 6.5 | **Implemented + tested (Robolectric; not yet run on a device)**: choose account and file (system picker, reads at most the size limit), mapping with column pickers and an explicit date-format choice when day/month is ambiguous, optional saved profile, preview with counts, in/out totals, already-imported and running-balance warnings, per-row import/skip/link/import-anyway and category, commit, reconcile against the statement closing balance, import history with rollback (edited-row warning), categorization rules screen | app/src/main/.../ui/imports | Executed–Passed: ImportViewModelsTest 3 (found and fixed: an ambiguous date format discarded the recognized columns) | Share-sheet (ACTION_SEND/VIEW) entry not built yet; device run in Phase 8 |
-| Accounts | ACC-01..07 | 4 | In progress (create + balances done; archive/edit/reconcile/UI pending) | — | see row above | — |
-| Transactions + fast entry | TXN-01..13 | 4 | Planned | — | Not written | TXN-13 critical for adoption (R-19) |
-| Categories | CAT-01..04 | 4 | Planned | — | Not written | — |
-| Budgets | BUD-01..06, 08 | 4 | Planned | — | Not written | — |
-| Budget rollover | BUD-07 | 5 | Planned | — | Not written | — |
 | Savings & allocation ledger (domain) | SAV-01..04, BUD-05/06 | 4.3 | **Implemented + tested (domain only)**: buckets, fund/allocate/percent/reallocate, goal contribute/withdraw/transfer/direct earmark with confirmation + before/after snapshot, linked-account cap (shared-account groups), funding modes, available-to-budget, progress, free money | domain/src/main/.../allocation | Executed–Passed: allocation.AllocationTest 11 incl. property (3,000 sequences) — EX-15, EX-16, EX-17 | Persistence + UI pending (4.5–4.8); rollover is Phase 5 |
-| Income & recurring | INC-01..03 | 4–5 | Planned | — | Not written | — |
-| Debts / assets / net worth | DEBT-01..03, AST-01, NW-01..02 | 5 | Planned | — | Not written | — |
-| Bills & subscriptions | BILL-01..03 | 5 | Planned | — | Not written | Reminders best-effort (Doze/OEM) |
-| Reports | RPT-01..04 | 5 | Planned | — | Not written | — |
-| CSV / XLSX import | IMP-01, 02, 04..07, 09, 10 | 6 | Planned | — | Not written | Institution profiles need real samples (Q-11) |
-| PDF import | IMP-03, IMP-08 | 6 | Planned | — | Not written | Verified layouts only; PdfBox-Android fit unproven (R-21) |
+| PDF import | IMP-03, IMP-08 | 6 | **Deferred** (needs verified layouts, Q-11) | — | Not written | Verified layouts only; PdfBox-Android fit unproven (R-21) |
 | Direct integrations | INT-01, 03, 04, 05 | — | **Out of scope** | — | — | ADR-0006 |
 | Integration constraints | INT-02, INT-06 | all | In force (policy) | — | n/a | — |
 | Local-first & encrypted DB | LOC-01..04 | 3 | **In progress**: schema v1, triggers, integrity checks, SQLCipher factory, Keystore-wrapped key implemented | data/src/main/... | Executed–Passed (11, JVM/Robolectric); encryption on device **Not executed** | Pre-migration backup not yet implemented (needs the first migration and the backup format) |
@@ -157,3 +149,7 @@ Windows 10, Node 22.12 / npm 10.9, Python 3.13, Git 2.47. **Not installed:** JDK
 | 2026-11-05 | XLSX import: in-house streaming reader on Android XmlPullParser (fastexcel fails R8 on Android) | docs/spikes/apk-size.md |
 | 2026-11-05 | Owner: commit continuously; defer phone connection, follow up next session | — |
 | 2026-11-05 | Correction: 4 property tests had silently never run (value-returning JUnit 5 tests); fixed + `testDiscovery` guard added | PROGRESS Phase 3 note |
+| 2026-11-06 | New dev PC: Temurin 21 (Oracle JDK rejects BouncyCastle as a JCE provider), SDK packages installed by hand, aapt2 override | docs/20 §1 |
+| 2026-11-06 | Emulators (WHPX) replace the phone for device testing; debug builds allow screenshots, release keeps FLAG_SECURE (build check) | docs/20 §4 |
+| 2026-11-06 | Key loss: "start over" sets unreadable data aside, never deletes; local crash reports without messages | docs/16 §6a |
+| 2026-11-07 | Release candidate 1.0.0-rc1 (versionCode 2); 0.9.0-beta withdrawn (release-only backup crash D6) | docs/qa/test-state.md |

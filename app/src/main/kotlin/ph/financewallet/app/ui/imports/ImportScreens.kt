@@ -43,7 +43,9 @@ import ph.financewallet.app.ui.common.AmountText
 import ph.financewallet.app.ui.common.ChoiceChips
 import ph.financewallet.app.ui.common.ErrorLine
 import ph.financewallet.app.ui.common.LabeledRow
+import ph.financewallet.app.ui.common.ScreenTitle
 import ph.financewallet.app.ui.common.SectionTitle
+import ph.financewallet.app.ui.common.SurfaceCard
 import ph.financewallet.app.ui.common.display
 import ph.financewallet.app.ui.theme.LocalSpacing
 import ph.financewallet.app.ui.transactions.Option
@@ -109,7 +111,7 @@ fun ImportScreen(vm: ImportViewModel) {
         }
     val spacing = LocalSpacing.current
     Column(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        SectionTitle(stringResource(R.string.import_title))
+        ScreenTitle(stringResource(R.string.import_title))
         when (state.step) {
             ImportStep.CHOOSE -> ChooseStep(state, vm, onPick = { picker.launch(PICKER_TYPES) })
             ImportStep.MAP -> MapStep(state, vm)
@@ -271,7 +273,7 @@ private fun PreviewStep(
         items(
             preview.rows,
             key = { it.rowNo },
-        ) { r -> PreviewRowView(r, state.decisions[r.rowNo], state.categories) { vm.decide(r.rowNo, it) } }
+        ) { r -> PreviewRowView(r, state.decisions[r.rowNo], state.categories, state.incomeCategoryIds) { vm.decide(r.rowNo, it) } }
         item {
             ErrorLine(error)
             Button(onClick = { scope.launch { error = vm.commit() } }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
@@ -286,7 +288,7 @@ private fun PreviewStep(
 private fun PreviewSummary(state: ImportState) {
     val preview = checkNotNull(state.preview)
     val spacing = LocalSpacing.current
-    Card(Modifier.fillMaxWidth()) {
+    SurfaceCard {
         Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
             Text(
                 stringResource(
@@ -328,10 +330,11 @@ private fun PreviewRowView(
     r: PreviewRow,
     decision: RowDecision?,
     categories: List<Option>,
+    incomeCategoryIds: Set<String>,
     onDecide: (RowDecision) -> Unit,
 ) {
     val spacing = LocalSpacing.current
-    Card(Modifier.fillMaxWidth()) {
+    SurfaceCard {
         Column(Modifier.padding(spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
             val row = r.row
             if (row == null) {
@@ -348,7 +351,9 @@ private fun PreviewRowView(
             )
             DecisionChips(r, decision, onDecide)
             if (decision is RowDecision.Import) {
-                ChoiceChips(categories, categories.firstOrNull { it.id == decision.categoryId }, { it.label }, { c ->
+                // Money in takes an income category, money out an expense category; offer only those.
+                val fitting = categories.filter { (it.id in incomeCategoryIds) == row.amount.isPositive }
+                ChoiceChips(fitting, fitting.firstOrNull { it.id == decision.categoryId }, { it.label }, { c ->
                     onDecide(RowDecision.Import(c.id.takeIf { it != decision.categoryId }))
                 })
             }
@@ -447,10 +452,10 @@ fun ImportHistoryScreen(vm: ImportHistoryViewModel) {
     LaunchedEffect(Unit) { vm.refresh() }
     val spacing = LocalSpacing.current
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        item { SectionTitle(stringResource(R.string.import_history_title)) }
+        item { ScreenTitle(stringResource(R.string.import_history_title)) }
         if (!state.loading && state.batches.isEmpty()) item { Text(stringResource(R.string.import_history_empty)) }
         items(state.batches, key = { it.id }) { b ->
-            Card(Modifier.fillMaxWidth()) {
+            SurfaceCard {
                 Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                     Text(b.fileName, style = MaterialTheme.typography.titleSmall)
                     Text(
@@ -528,7 +533,7 @@ fun RulesScreen(vm: RulesViewModel) {
     val spacing = LocalSpacing.current
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         item {
-            SectionTitle(stringResource(R.string.rules_title))
+            ScreenTitle(stringResource(R.string.rules_title))
             Text(stringResource(R.string.rules_explain), style = MaterialTheme.typography.bodySmall)
             OutlinedTextField(pattern, {
                 pattern = it

@@ -143,6 +143,15 @@ class Phase5ViewModelsTest {
                     .single()
                     .total,
             )
+            // Regression (emulator, 2026-11-06): Home showed net worth without user-entered assets, so Home and Reports
+            // disagreed. Home must use the same figure.
+            assertEquals(
+                p(5_000_000 + 58_000_000),
+                ph.financewallet.app.ui.home
+                    .HomeViewModel(s)
+                    .load()
+                    .netWorth,
+            )
         }
 
     @Test

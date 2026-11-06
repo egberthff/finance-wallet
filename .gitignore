@@ -24,7 +24,7 @@ local.properties
 *.jks
 *.keystore
 keystore.properties
-signing.properties
+*signing*.properties
 *.pem
 *.p12
 .env
@@ -36,3 +36,6 @@ samples-private/
 
 # Logs
 *.log
+
+# Release artifacts (archive outside git; see docs/22-deployment-guide.md)
+dist/

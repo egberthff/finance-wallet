@@ -1,16 +1,24 @@
 package ph.financewallet.app.ui.lock
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -24,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -33,9 +42,11 @@ import kotlinx.coroutines.delay
 import ph.financewallet.app.R
 import ph.financewallet.app.security.LockState
 import ph.financewallet.app.security.PinHasher
+import ph.financewallet.app.ui.theme.AppIcons
 import ph.financewallet.app.ui.theme.LocalSpacing
 
 private val KEY_SIZE = 72.dp
+private val BADGE_SIZE = 56.dp
 private val DOT_SIZE = 14.dp
 private val MESSAGE_HEIGHT = 48.dp
 private const val COUNTDOWN_TICK_MS = 500L
@@ -77,10 +88,17 @@ fun LockScreen(
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
-            Modifier.fillMaxSize().padding(spacing.lg),
+            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(spacing.lg),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
+            Box(
+                Modifier.size(BADGE_SIZE).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(AppIcons.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
+            }
+            Spacer(Modifier.height(spacing.md))
             Text(lockTitle(state), style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
             Spacer(Modifier.height(spacing.md))
             PinDots(entered.length)
@@ -199,8 +217,8 @@ private fun Keypad(
         }
         KeyButton("0", enabled) { onDigit('0') }
         Box(Modifier.size(KEY_SIZE), contentAlignment = Alignment.Center) {
-            TextButton(onClick = onDelete, enabled = canDelete) {
-                Text(stringResource(R.string.lock_delete))
+            IconButton(onClick = onDelete, enabled = canDelete, modifier = Modifier.size(KEY_SIZE)) {
+                Icon(AppIcons.Backspace, contentDescription = stringResource(R.string.lock_delete))
             }
         }
     }
@@ -212,7 +230,19 @@ private fun KeyButton(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    FilledTonalButton(onClick = onClick, enabled = enabled, shape = CircleShape, modifier = Modifier.size(KEY_SIZE)) {
+    // Explicit label: screen readers (and UI automation) must announce the digit, not an unlabeled button.
+    FilledTonalButton(
+        onClick = onClick,
+        enabled = enabled,
+        shape = CircleShape,
+        modifier = Modifier.size(KEY_SIZE).semantics { contentDescription = label },
+        colors =
+            ButtonDefaults.filledTonalButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
         Text(label, style = MaterialTheme.typography.headlineSmall)
     }
 }

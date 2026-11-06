@@ -45,7 +45,9 @@ import ph.financewallet.app.ui.common.AmountText
 import ph.financewallet.app.ui.common.ChoiceChips
 import ph.financewallet.app.ui.common.FigureCard
 import ph.financewallet.app.ui.common.LabeledRow
+import ph.financewallet.app.ui.common.ScreenTitle
 import ph.financewallet.app.ui.common.SectionTitle
+import ph.financewallet.app.ui.common.SurfaceCard
 import ph.financewallet.app.ui.common.display
 import ph.financewallet.app.ui.components.LoadingState
 import ph.financewallet.app.ui.theme.LocalFinanceColors
@@ -117,7 +119,7 @@ private fun RangeHeader(
 ) {
     val range = checkNotNull(state.range)
     val spacing = LocalSpacing.current
-    SectionTitle(stringResource(R.string.reports_title))
+    ScreenTitle(stringResource(R.string.reports_title))
     ChoiceChips(RangeKind.entries.toList(), state.kind, { stringResource(rangeLabel(it)) }, vm::select)
     Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
         TextButton(onClick = { vm.shift(-1) }) { Text(stringResource(R.string.reports_previous)) }
@@ -145,7 +147,7 @@ private fun IncomeExpenseCard(state: ReportsState) {
     val spacing = LocalSpacing.current
     val zero = Money.zero(ph.financewallet.domain.money.CurrencyCode.PHP)
     val s = state.summary
-    Card(Modifier.fillMaxWidth()) {
+    SurfaceCard {
         Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
             LabeledRow(stringResource(R.string.home_income)) { AmountText(s?.income ?: zero) }
             LabeledRow(stringResource(R.string.home_spending)) { AmountText(-(s?.spending ?: zero)) }

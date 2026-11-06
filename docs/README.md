@@ -22,8 +22,12 @@
 | — | [ADRs](adr/README.md) | 1+ |
 | — | [Integration status register](integrations/README.md) | 1+ |
 | — | [Progress & traceability matrix](../PROGRESS.md) | all |
-
-Planned for later phases: environment setup, development guide,
-testing guide, deployment guide, backup & recovery guide, known limitations.
+| 19 | [Environment setup](19-environment-setup.md) | 3 |
+| 20 | [Development and testing guide](20-development-and-testing-guide.md) | 8 |
+| 21 | [Privacy notice (draft for legal review)](21-privacy-notice.md) | 9 |
+| 22 | [Deployment guide](22-deployment-guide.md) | 9 |
+| 23 | [Backup and recovery guide](23-backup-and-recovery-guide.md) | 9 |
+| 24 | [Known limitations](24-known-limitations.md) | 9 |
+| — | [Testing state and handover](qa/test-state.md) | 8 |
 
 Traceability: requirement IDs (e.g. `TXN-04`) are defined in the PRD. ADRs, tests, and PROGRESS.md reference them.

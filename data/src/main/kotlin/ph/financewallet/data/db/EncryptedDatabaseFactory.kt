@@ -20,6 +20,21 @@ object EncryptedDatabaseFactory {
     /** UC-31: destroys the Keystore key that wraps the database key. Call only after the database is closed. */
     fun destroyKey() = AndroidKeystoreKeyWrapper(WRAP_ALIAS).destroy()
 
+    /**
+     * R-11 recovery: moves the database that can no longer be opened, with its wrapped key, aside (never deletes it).
+     * The next [open] creates a new key and an empty database. Call only while the database is not open.
+     */
+    fun setAsideUnreadable(
+        context: Context,
+        nowMillis: Long,
+    ): File? {
+        val db = context.getDatabasePath(FinanceDatabase.FILE_NAME)
+        val files =
+            listOf(db, File(db.path + "-wal"), File(db.path + "-shm"), File(db.path + "-journal")) +
+                File(context.noBackupFilesDir, KEY_FILE)
+        return UnreadableData.setAside(files, context.noBackupFilesDir, nowMillis)
+    }
+
     /** Opens (and if needed migrates, with pre-migration backup) the encrypted database. Call off the main thread. */
     suspend fun open(context: Context): FinanceDatabase {
         loadLibrary()

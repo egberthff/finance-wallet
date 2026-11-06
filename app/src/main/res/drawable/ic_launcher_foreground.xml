@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher foreground: a teal disc with a white peso sign, inside the 66 dp adaptive-icon safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#13998A"
+        android:pathData="M54,27a27,27 0,1 1,0 54a27,27 0,1 1,0 -54z" />
+    <path
+        android:pathData="M48,40V69M48,41.5H56.5A8.25,8.25 0,0 1,56.5 58H48M41,47H67M41,53H67"
+        android:strokeWidth="4.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

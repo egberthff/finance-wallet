@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Must equal the Compose background token (ui/theme/Theme.kt). -->
+    <color name="window_background">#F3F5F9</color>
+    <!-- Launcher icon (adaptive icon background). -->
+    <color name="ic_launcher_background">#16365F</color>
+</resources>

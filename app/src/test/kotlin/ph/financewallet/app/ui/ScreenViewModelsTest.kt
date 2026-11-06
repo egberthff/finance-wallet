@@ -147,7 +147,12 @@ class ScreenViewModelsTest {
             val period = checkNotNull(card.current).period
             assertEquals(LocalDate.of(2026, 11, 5) to LocalDate.of(2026, 12, 4), period.start to period.endInclusive)
             assertNull(vm.fund(period.id, "10,000", "f1"))
-            assertNull(vm.allocate(period.id, food, "4,000", "a1"))
+            // No choice: an error, and nothing is written (the totals below prove it).
+            assertEquals(R.string.err_category_required, vm.allocateTo(period.id, null, "4,000", "a0"))
+            assertEquals(R.string.err_goal_required, vm.saveToGoalChoice(period.id, null, "1", "g0"))
+            // Regression (found on the emulator 2026-11-06): a successful dialog write must report success (null),
+            // not "Choose a category".
+            assertNull(vm.allocateTo(period.id, food, "4,000", "a1"))
             val o =
                 checkNotNull(
                     vm

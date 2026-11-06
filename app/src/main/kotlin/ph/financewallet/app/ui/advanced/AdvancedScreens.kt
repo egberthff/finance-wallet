@@ -44,7 +44,9 @@ import ph.financewallet.app.ui.common.ChoiceChips
 import ph.financewallet.app.ui.common.ErrorLine
 import ph.financewallet.app.ui.common.FigureCard
 import ph.financewallet.app.ui.common.LabeledRow
+import ph.financewallet.app.ui.common.ScreenTitle
 import ph.financewallet.app.ui.common.SectionTitle
+import ph.financewallet.app.ui.common.SurfaceCard
 import ph.financewallet.app.ui.common.display
 import ph.financewallet.app.ui.theme.LocalSpacing
 import ph.financewallet.app.ui.transactions.Option
@@ -116,7 +118,7 @@ fun DebtsScreen(
     val spacing = LocalSpacing.current
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         item {
-            SectionTitle(stringResource(R.string.debts_title))
+            ScreenTitle(stringResource(R.string.debts_title))
             Button(onClick = { adding = true }) { Text(stringResource(R.string.debt_add)) }
             if (!state.loading &&
                 state.debts.isEmpty()
@@ -136,7 +138,7 @@ private fun DebtCard(
     onPay: () -> Unit,
 ) {
     val spacing = LocalSpacing.current
-    Card(Modifier.fillMaxWidth()) {
+    SurfaceCard {
         Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
             LabeledRow(d.name) { AmountText(-d.outstanding) }
             Text(
@@ -257,7 +259,7 @@ fun BillsScreen(
     val spacing = LocalSpacing.current
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         item {
-            SectionTitle(stringResource(R.string.bills_title))
+            ScreenTitle(stringResource(R.string.bills_title))
             Button(onClick = { adding = true }) { Text(stringResource(R.string.bill_add)) }
             NotificationPermissionRow()
             if (!state.loading &&
@@ -302,7 +304,7 @@ private fun BillRow(
     onSkip: () -> Unit,
 ) {
     val spacing = LocalSpacing.current
-    Card(Modifier.fillMaxWidth()) {
+    SurfaceCard {
         Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
             LabeledRow(item.name) { AmountText(if (item.kind == RuleKind.EXPECTED_INCOME) item.amount else -item.amount) }
             val estimate = if (item.amountIsEstimate) " · " + stringResource(R.string.bill_estimate) else ""
@@ -415,17 +417,23 @@ fun AssetsScreen(vm: AssetsViewModel) {
     val spacing = LocalSpacing.current
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         item {
-            SectionTitle(stringResource(R.string.assets_title))
+            ScreenTitle(stringResource(R.string.assets_title))
             Text(stringResource(R.string.assets_explain), style = MaterialTheme.typography.bodySmall)
             Button(onClick = { adding = true }) { Text(stringResource(R.string.asset_add)) }
         }
         items(state.assets.filter { !it.archived }, key = { it.id }) { a ->
             val value = a.latestValue
-            Card(onClick = { valuing = a }, modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(spacing.md)) {
-                    if (value != null) {
-                        FigureCard(a.name, value, stringResource(R.string.asset_value_on, a.latestAsOf.toString()))
-                    } else {
+            if (value != null) {
+                FigureCard(
+                    a.name,
+                    value,
+                    stringResource(R.string.asset_value_on, a.latestAsOf.toString()),
+                    icon = ph.financewallet.app.ui.theme.AppIcons.Bank,
+                    onClick = { valuing = a },
+                )
+            } else {
+                SurfaceCard(onClick = { valuing = a }) {
+                    Column(Modifier.padding(spacing.md)) {
                         Text(a.name)
                         Text(stringResource(R.string.asset_no_value), style = MaterialTheme.typography.bodySmall)
                     }

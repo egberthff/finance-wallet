@@ -26,6 +26,26 @@
 
     <!-- Phase 4 screens -->
     <string name="loading">Loading…</string>
+    <string name="action_back">Back</string>
+    <string name="action_try_again">Try again</string>
+    <string name="db_key_lost_message">This phone can no longer unlock the key that protects your records (this can happen after a security update or a change to the phone\'s lock settings). Try again first. If it keeps failing, you can start over and restore your latest backup file.</string>
+    <string name="db_start_over">Start over and restore a backup</string>
+    <string name="db_start_over_explain">The records that cannot be opened stay on this phone, untouched, in case they can be recovered later. The app restarts with no records. Then open More, Backup &amp; restore, and restore your latest backup file. Anything recorded after that backup is not in it.</string>
+    <string name="db_start_over_confirm">Start over</string>
+    <string name="crash_title">Crash reports</string>
+    <string name="crash_explain">If the app ever closes because of an error, a short report is kept on this phone. It contains only error types and code locations: no amounts, names or other records. Nothing is sent anywhere; you can save the reports and share them yourself.</string>
+    <string name="crash_none">No crash reports.</string>
+    <plurals name="crash_count">
+        <item quantity="one">%d crash report saved on this phone.</item>
+        <item quantity="other">%d crash reports saved on this phone.</item>
+    </plurals>
+    <string name="crash_save">Save crash reports</string>
+    <string name="crash_delete">Delete crash reports</string>
+    <string name="crash_saved">Crash reports saved.</string>
+    <string name="more_section_understand">Understand</string>
+    <string name="more_section_plan">Plan</string>
+    <string name="more_section_import">Statements</string>
+    <string name="more_section_data">Your data</string>
     <string name="action_save">Save</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_delete">Delete</string>
@@ -52,7 +72,7 @@
     <string name="type_borrowed">Borrowed money</string>
     <string name="type_other">Other</string>
     <string name="accounts_add">Add account</string>
-    <string name="accounts_active">Accounts</string>
+    <string name="accounts_active">Active</string>
     <string name="accounts_archived">Archived</string>
     <string name="accounts_empty_title">No accounts yet</string>
     <string name="accounts_empty_message">Add your cash, bank, e-wallet or credit card accounts. Balances are calculated from what you record here.</string>
@@ -70,6 +90,7 @@
     <string name="accounts_unarchive">Restore</string>
     <string name="accounts_archive_ack">I understand this account still has a balance</string>
     <string name="txn_add">Add transaction</string>
+    <string name="txn_edit_title">Edit transaction</string>
     <string name="txn_empty_title">No transactions yet</string>
     <string name="txn_empty_message">Record income, expenses and transfers. Transfers between your own accounts never count as spending.</string>
     <string name="txn_load_more">Load more</string>

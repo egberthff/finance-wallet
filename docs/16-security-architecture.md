@@ -58,7 +58,25 @@ with a backup pin, and E2E encryption of payloads.
 - Google Play **Data safety** draft (to confirm in Phase 9): "No data collected, no data shared". This is only valid while ADR-0010 holds.
 - **Legal review still required** before public release (R-07). This document makes no compliance claim.
 
+## 6a. Implementation status (1.0.0-rc1, 2026-11-06)
+- **Key loss (R-11):** when `DatabaseKeyUnavailableException` occurs, the open-error screen offers *Try again* and *Start
+  over and restore a backup*. Start over moves the database files and the wrapped key together to
+  `no_backup/unreadable/<timestamp>/` (`UnreadableData`, never deleted), then restarts with a new key and empty database.
+- **Crash reports:** `CrashLog` records exception types and stack frames only (messages can contain user data), keeps 5,
+  stores them in no-backup storage, and the user saves them through the file picker. Nothing is transmitted (ADR-0010).
+- **Logging:** release code logs exception class names only, never messages.
+- **FLAG_SECURE:** controlled by `R.bool.secure_window`; only `src/debug` may set it false (screenshots for UI review);
+  `checkSecureWindow` fails the build if any main/release resource disables it.
+- **Backup passphrases:** a passphrase is also refused when it is a common password padded with digits or symbols
+  ("password123").
+- **Accepted limitation:** the PIN lockout uses the wall clock (see docs/24-known-limitations.md).
+
 ## 7. Verification plan (Phase 8)
+Executed on emulators (Android 13 and 11), 2026-11-06/07: release screenshots are black (AC-SEC-2); the database file has no
+SQLite header and contains no plaintext record text (AC-SEC-1); the backup file contains only the `FWBK` header and
+ciphertext; the merged release manifest has no network permission; delete-all removes database, keys and PIN. Details:
+[phase 8 QA report](milestones/phase-8-quality-assurance.md#7-qa-report).
+
 MASVS-mapped checklist; manual review of the merged manifest; `adb backup`/device-transfer test showing no data extracted;
 DB file opened with stock sqlite3 shows "file is not a database" (AC-SEC-1); recents and screenshot test (AC-SEC-2);
 fuzzing of CSV/XLSX parsers with malformed inputs; secret scan in CI (AC-SEC-3).

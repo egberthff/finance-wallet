@@ -3,6 +3,8 @@ package ph.financewallet.app.ui.accounts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -11,7 +13,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -28,18 +29,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import ph.financewallet.app.R
+import ph.financewallet.app.ui.common.AddFab
 import ph.financewallet.app.ui.common.AmountField
 import ph.financewallet.app.ui.common.AmountText
 import ph.financewallet.app.ui.common.ChoiceChips
 import ph.financewallet.app.ui.common.ErrorLine
+import ph.financewallet.app.ui.common.IconDisc
 import ph.financewallet.app.ui.common.LabeledRow
+import ph.financewallet.app.ui.common.ListRow
+import ph.financewallet.app.ui.common.ScreenTitle
 import ph.financewallet.app.ui.common.SectionTitle
+import ph.financewallet.app.ui.common.SurfaceCard
 import ph.financewallet.app.ui.common.display
 import ph.financewallet.app.ui.components.EmptyState
 import ph.financewallet.app.ui.components.LoadingState
+import ph.financewallet.app.ui.theme.AppIcons
 import ph.financewallet.app.ui.theme.LocalSpacing
 import ph.financewallet.domain.ledger.FinancialAccountType
 
@@ -51,9 +59,12 @@ fun AccountsScreen(
     val state by vm.state.collectAsStateWithLifecycle()
     var adding by rememberSaveable { mutableStateOf(false) }
     var selected by remember { mutableStateOf<AccountUi?>(null) }
+    // Balances change from other screens (entries, imports, undo): reload every time the tab is shown.
+    androidx.compose.runtime.LaunchedEffect(Unit) { vm.refresh() }
     Scaffold(
+        contentWindowInsets = WindowInsets(0),
         floatingActionButton = {
-            ExtendedFloatingActionButton(onClick = { adding = true }) { Text(stringResource(R.string.accounts_add)) }
+            AddFab(stringResource(R.string.accounts_add)) { adding = true }
         },
     ) { padding ->
         Column(Modifier.padding(padding)) {
@@ -89,38 +100,60 @@ private fun AccountList(
     val spacing = LocalSpacing.current
     LazyColumn(
         Modifier.fillMaxSize().padding(horizontal = spacing.md),
+        contentPadding = PaddingValues(bottom = FAB_CLEARANCE),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
+        item { ScreenTitle(stringResource(R.string.nav_accounts), stringResource(R.string.accounts_calculated_note)) }
         item { SectionTitle(stringResource(R.string.accounts_active)) }
         items(state.accounts, key = { it.row.id }) { AccountCard(it, onSelect) }
         if (state.archived.isNotEmpty()) {
             item { SectionTitle(stringResource(R.string.accounts_archived)) }
             items(state.archived, key = { it.row.id }) { AccountCard(it, onSelect) }
         }
-        item { Text(stringResource(R.string.accounts_calculated_note), style = MaterialTheme.typography.bodySmall) }
     }
 }
 
+private val FAB_CLEARANCE = 96.dp
+
+private fun accountIcon(type: FinancialAccountType) =
+    when (type) {
+        FinancialAccountType.BANK -> AppIcons.Bank
+        FinancialAccountType.SAVINGS -> AppIcons.Save
+        FinancialAccountType.CREDIT_CARD, FinancialAccountType.LOAN, FinancialAccountType.BORROWED -> AppIcons.CreditCard
+        else -> AppIcons.Wallet
+    }
+
+/** One account: calculated balance first; pending and the last reconciled statement balance are shown separately (ACC). */
 @Composable
 private fun AccountCard(
     a: AccountUi,
     onSelect: (AccountUi) -> Unit,
 ) {
     val spacing = LocalSpacing.current
-    Card(Modifier.fillMaxWidth().clickable { onSelect(a) }) {
-        Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-            LabeledRow(a.row.name) { AmountText(a.balance) }
-            Text(stringResource(typeLabel(FinancialAccountType.valueOf(a.row.type))), style = MaterialTheme.typography.bodySmall)
-            if (!a.pending.isZero) {
-                LabeledRow(stringResource(R.string.accounts_pending)) { AmountText(a.pending) }
-            }
-            a.reconciled?.let {
-                Text(
-                    stringResource(R.string.accounts_reconciled_on, it.statementBalance.display(), it.asOf.toString()),
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+    val type = FinancialAccountType.valueOf(a.row.type)
+    SurfaceCard(onClick = { onSelect(a) }) {
+        ListRow(
+            a.row.name,
+            subtitle = stringResource(typeLabel(type)),
+            leading = { IconDisc(accountIcon(type), MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer) },
+        ) { AmountText(a.balance) }
+        if (!a.pending.isZero || a.reconciled != null) {
+            Column(
+                Modifier.padding(start = spacing.md, end = spacing.md, bottom = spacing.sm + spacing.xs),
+                verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            ) {
+                if (!a.pending.isZero) {
+                    LabeledRow(stringResource(R.string.accounts_pending)) { AmountText(a.pending) }
+                }
+                a.reconciled?.let {
+                    Text(
+                        stringResource(R.string.accounts_reconciled_on, it.statementBalance.display(), it.asOf.toString()),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }

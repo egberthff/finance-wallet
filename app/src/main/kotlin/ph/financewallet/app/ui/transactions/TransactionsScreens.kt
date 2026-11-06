@@ -2,8 +2,11 @@ package ph.financewallet.app.ui.transactions
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -15,6 +18,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -31,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import ph.financewallet.app.R
@@ -38,11 +43,18 @@ import ph.financewallet.app.ui.common.AmountField
 import ph.financewallet.app.ui.common.AmountText
 import ph.financewallet.app.ui.common.ChoiceChips
 import ph.financewallet.app.ui.common.ErrorLine
+import ph.financewallet.app.ui.common.ListRow
+import ph.financewallet.app.ui.common.ScreenTitle
+import ph.financewallet.app.ui.common.TxnAmount
+import ph.financewallet.app.ui.common.TxnIcon
 import ph.financewallet.app.ui.components.EmptyState
 import ph.financewallet.app.ui.components.LoadingState
+import ph.financewallet.app.ui.theme.AppIcons
 import ph.financewallet.app.ui.theme.LocalSpacing
 import ph.financewallet.data.ledger.TransactionListItem
 import ph.financewallet.domain.ledger.TxnType
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun TransactionsScreen(
@@ -54,7 +66,16 @@ fun TransactionsScreen(
     var deleting by remember { mutableStateOf<TransactionListItem?>(null) }
     LaunchedEffect(Unit) { vm.refresh() }
     Scaffold(
-        floatingActionButton = { ExtendedFloatingActionButton(onClick = onAdd) { Text(stringResource(R.string.txn_add)) } },
+        contentWindowInsets = WindowInsets(0),
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = onAdd,
+                icon = { Icon(AppIcons.Add, contentDescription = null) },
+                text = { Text(stringResource(R.string.txn_add)) },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            )
+        },
     ) { padding ->
         Column(Modifier.padding(padding)) {
             when {
@@ -87,10 +108,11 @@ private fun TransactionList(
     onSelect: (TransactionListItem) -> Unit,
 ) {
     val spacing = LocalSpacing.current
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = spacing.md)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = FAB_CLEARANCE)) {
+        item { Box(Modifier.padding(horizontal = spacing.md)) { ScreenTitle(stringResource(R.string.nav_transactions)) } }
         items(state.items, key = { it.id }) { item ->
             TransactionRow(item, onSelect)
-            HorizontalDivider()
+            HorizontalDivider(Modifier.padding(start = DIVIDER_INSET), color = MaterialTheme.colorScheme.outlineVariant)
         }
         if (state.next != null) {
             item {
@@ -107,27 +129,26 @@ private fun TransactionRow(
     item: TransactionListItem,
     onSelect: (TransactionListItem) -> Unit,
 ) {
-    val spacing = LocalSpacing.current
-    Row(
-        Modifier.fillMaxWidth().clickable { onSelect(item) }.padding(vertical = spacing.sm),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(title(item), style = MaterialTheme.typography.bodyLarge)
-            val subtitle =
-                listOfNotNull(
-                    item.date.toString(),
-                    item.counterpartyName?.let { "${item.accountName} → $it" } ?: item.accountName,
-                    if (item.pending) stringResource(R.string.txn_pending) else null,
-                ).joinToString(" · ")
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        AmountText(item.amount)
-    }
+    val subtitle =
+        listOfNotNull(
+            item.date.format(ROW_DATE),
+            item.counterpartyName?.let { "${item.accountName} → $it" } ?: item.accountName,
+            if (item.pending) stringResource(R.string.txn_pending) else null,
+        ).joinToString(" · ")
+    ListRow(
+        txnTitle(item),
+        subtitle = subtitle,
+        leading = { TxnIcon(item.type, item.amount) },
+        onClick = { onSelect(item) },
+    ) { TxnAmount(item.type, item.amount) }
 }
 
+private val FAB_CLEARANCE = 96.dp
+private val DIVIDER_INSET = 72.dp
+private val ROW_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
+
 @Composable
-private fun title(item: TransactionListItem): String {
+fun txnTitle(item: TransactionListItem): String {
     val label = item.description.ifBlank { item.merchant.orEmpty() }
     if (label.isNotBlank()) return label
     if (item.categoryNames.isNotEmpty()) return item.categoryNames.joinToString(", ")
@@ -185,11 +206,18 @@ fun EntryScreen(
     }
     val spacing = LocalSpacing.current
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(spacing.md),
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = spacing.md)
+            .padding(bottom = spacing.md),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
+        ScreenTitle(stringResource(if (editTxnId != null) R.string.txn_edit_title else R.string.txn_add))
         ChoiceChips(EntryKind.entries.toList(), form.kind, { stringResource(kindLabel(it)) }, { k ->
             vm.edit { it.copy(kind = k, categoryId = null) }
+            // A message about the previous type (e.g. "Choose a category") no longer applies.
+            error = null
         })
         AmountField(
             form.amount,

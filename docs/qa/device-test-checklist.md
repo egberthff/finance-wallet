@@ -1,6 +1,6 @@
-# Phone Test Checklist: Finance Manager 0.9.0-beta
+# Phone Test Checklist: Finance Manager 1.0.0-rc1
 
-APK: `FinanceManager-0.9.0-beta.apk` (SHA-256 `29040c23f9c7a5df8b2a430269d772cf3c441af551833c862767ca4c82c42b21`).
+APK: `dist/FinanceManager-1.0.0-rc1.apk` (SHA-256 `becef1cbedb89f94ade08d23c61b8a0c56f8e5a92ff0552ac0cc9700dfd74de1`). Do not use 0.9.0-beta: making a backup crashes it (defect D6). Emulator results: [test-state.md](test-state.md).
 Use made-up records only; do not enter real account numbers. For each check write **Pass**, **Fail** (with what you saw) or
 **Skipped**. A screenshot or short description is enough for a failure. Screenshots inside the app are blocked on purpose
 (check S3), so describe the screen or photograph it with another phone.

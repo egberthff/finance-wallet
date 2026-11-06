@@ -137,6 +137,25 @@ class BudgetsViewModel(
         key: String,
     ): Int? = withAmount(amountText) { s.goals.contribute(Bucket.Unallocated(periodId), goalId, it, key) }
 
+    /**
+     * Dialog entry points: a missing choice is an error; otherwise the result of the write (null = success).
+     * Written as an explicit branch because `choice?.let { write() } ?: error` turns a successful write (null) into
+     * the error, which once told users a saved allocation had failed.
+     */
+    suspend fun allocateTo(
+        periodId: String,
+        categoryId: String?,
+        amountText: String,
+        key: String,
+    ): Int? = if (categoryId == null) R.string.err_category_required else allocate(periodId, categoryId, amountText, key)
+
+    suspend fun saveToGoalChoice(
+        periodId: String,
+        goalId: String?,
+        amountText: String,
+        key: String,
+    ): Int? = if (goalId == null) R.string.err_goal_required else saveToGoal(periodId, goalId, amountText, key)
+
     suspend fun close(periodId: String): Int? =
         s.budgets
             .closePeriod(periodId)

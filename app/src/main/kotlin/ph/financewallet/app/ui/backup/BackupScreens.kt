@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -26,6 +28,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -37,13 +40,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import ph.financewallet.app.R
 import ph.financewallet.app.ui.accounts.CheckRow
 import ph.financewallet.app.ui.common.AmountText
 import ph.financewallet.app.ui.common.ErrorLine
 import ph.financewallet.app.ui.common.LabeledRow
+import ph.financewallet.app.ui.common.ScreenTitle
 import ph.financewallet.app.ui.common.SectionTitle
+import ph.financewallet.app.ui.common.SurfaceCard
 import ph.financewallet.app.ui.common.display
 import ph.financewallet.app.ui.components.LoadingState
 import ph.financewallet.app.ui.theme.LocalSpacing
@@ -80,7 +87,7 @@ fun BackupScreen(vm: BackupViewModel) {
     }
     val spacing = LocalSpacing.current
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        item { SectionTitle(stringResource(R.string.backup_title)) }
+        item { ScreenTitle(stringResource(R.string.backup_title)) }
         item { Text(stringResource(R.string.backup_explain), style = MaterialTheme.typography.bodySmall) }
         item {
             val last = state.lastBackupAt
@@ -118,7 +125,7 @@ private fun CreateSection(
                 }
             }
         }
-    Card(Modifier.fillMaxWidth()) {
+    SurfaceCard {
         Column(Modifier.padding(LocalSpacing.current.md), verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
             Text(stringResource(R.string.backup_create), style = MaterialTheme.typography.titleSmall)
             PassphraseField(pass, { pass = it }, stringResource(R.string.backup_passphrase))
@@ -188,7 +195,7 @@ private fun RestoreSection(
             file = uri
             error = null
         }
-    Card(Modifier.fillMaxWidth()) {
+    SurfaceCard {
         Column(Modifier.padding(LocalSpacing.current.md), verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
             Text(stringResource(R.string.backup_restore), style = MaterialTheme.typography.titleSmall)
             Text(stringResource(R.string.backup_restore_explain), style = MaterialTheme.typography.bodySmall)
@@ -259,6 +266,7 @@ fun PrivacyScreen(
     backup: BackupViewModel,
     delete: DeleteAllViewModel,
     onDeleted: () -> Unit,
+    crashLog: ph.financewallet.app.diagnostics.CrashLog,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -276,8 +284,15 @@ fun PrivacyScreen(
             }
         }
     val spacing = LocalSpacing.current
-    Column(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        SectionTitle(stringResource(R.string.privacy_title))
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = spacing.md)
+            .padding(bottom = spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        ScreenTitle(stringResource(R.string.privacy_title))
         Text(stringResource(R.string.privacy_explain), style = MaterialTheme.typography.bodySmall)
         SectionTitle(stringResource(R.string.privacy_export))
         Text(stringResource(R.string.privacy_export_explain), style = MaterialTheme.typography.bodySmall)
@@ -287,6 +302,7 @@ fun PrivacyScreen(
         ) { Text(stringResource(R.string.privacy_export)) }
         exportResult?.let { Text(pluralStringResource(R.plurals.privacy_export_done, it, it)) }
         if (exportFailed) ErrorLine(R.string.backup_err_write)
+        CrashReportsSection(crashLog)
         SectionTitle(stringResource(R.string.privacy_delete))
         Text(stringResource(R.string.privacy_delete_explain), style = MaterialTheme.typography.bodySmall)
         Button(
@@ -310,6 +326,46 @@ fun PrivacyScreen(
         )
     }
     if (deleting) DeleteAllDialog(delete, onDismiss = { deleting = false }, onDeleted = onDeleted)
+}
+
+/** Local crash reports: the user saves them through the system picker; nothing is sent by the app (ADR-0010). */
+@Composable
+private fun CrashReportsSection(crashLog: ph.financewallet.app.diagnostics.CrashLog) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var count by remember { mutableIntStateOf(crashLog.reports().size) }
+    var saved by remember { mutableStateOf(false) }
+    var failed by remember { mutableStateOf(false) }
+    val picker =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri: Uri? ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch {
+                val ok =
+                    withContext(Dispatchers.IO) {
+                        runCatching { context.contentResolver.openOutputStream(uri, "wt")?.let { crashLog.exportTo(it) } }.getOrNull()
+                    }
+                saved = ok != null
+                failed = ok == null
+            }
+        }
+    SectionTitle(stringResource(R.string.crash_title))
+    Text(stringResource(R.string.crash_explain), style = MaterialTheme.typography.bodySmall)
+    Text(
+        if (count == 0) stringResource(R.string.crash_none) else pluralStringResource(R.plurals.crash_count, count, count),
+        style = MaterialTheme.typography.bodyMedium,
+    )
+    if (count > 0) {
+        OutlinedButton(
+            onClick = { picker.launch("finance-manager-crash-reports-${LocalDate.now(MANILA)}.txt") },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(stringResource(R.string.crash_save)) }
+        TextButton(onClick = {
+            crashLog.clear()
+            count = 0
+        }) { Text(stringResource(R.string.crash_delete)) }
+    }
+    if (saved) Text(stringResource(R.string.crash_saved), style = MaterialTheme.typography.bodySmall)
+    if (failed) ErrorLine(R.string.backup_err_write)
 }
 
 /** Two steps: an explicit acknowledgement, then the app PIN (failures count towards the lockout). */
@@ -375,7 +431,7 @@ fun InsightsScreen(vm: InsightsViewModel) {
     }
     val spacing = LocalSpacing.current
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        item { SectionTitle(stringResource(R.string.insights_title)) }
+        item { ScreenTitle(stringResource(R.string.insights_title)) }
         item {
             Text(
                 stringResource(R.string.insights_explain, r.period.start.toString(), r.period.endInclusive.toString()),
@@ -390,7 +446,7 @@ fun InsightsScreen(vm: InsightsViewModel) {
 
 @Composable
 private fun FlowCard(r: InsightsReport) {
-    Card(Modifier.fillMaxWidth()) {
+    SurfaceCard {
         Column(Modifier.padding(LocalSpacing.current.md), verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.xs)) {
             Text(stringResource(R.string.insights_where), style = MaterialTheme.typography.labelLarge)
             LabeledRow(stringResource(R.string.home_income)) { AmountText(r.flow.income) }
@@ -440,7 +496,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.insightLists(r: Insig
 
 @Composable
 private fun EstimateCard(r: InsightsReport) {
-    Card(Modifier.fillMaxWidth()) {
+    SurfaceCard {
         Column(Modifier.padding(LocalSpacing.current.md), verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.xs)) {
             Text(stringResource(R.string.insights_capacity), style = MaterialTheme.typography.labelLarge)
             val c = r.savingCapacity

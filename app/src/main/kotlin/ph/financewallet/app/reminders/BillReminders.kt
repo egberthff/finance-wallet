@@ -177,7 +177,7 @@ class ReminderAlarmReceiver : BroadcastReceiver() {
                 // A background check must never crash the app; the Bills screen still shows everything (BILL-03).
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
-                android.util.Log.w("FinanceWallet", "bill reminder check failed", e)
+                android.util.Log.w("FinanceWallet", "bill reminder check failed: ${e.javaClass.name}")
             } finally {
                 pending.finish()
             }

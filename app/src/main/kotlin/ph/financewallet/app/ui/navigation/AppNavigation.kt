@@ -1,14 +1,27 @@
 package ph.financewallet.app.ui.navigation
 
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavGraphBuilder
@@ -18,6 +31,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import ph.financewallet.app.AppServices
+import ph.financewallet.app.R
 import ph.financewallet.app.ui.accounts.AccountsScreen
 import ph.financewallet.app.ui.accounts.AccountsViewModel
 import ph.financewallet.app.ui.advanced.AssetsScreen
@@ -49,6 +63,7 @@ import ph.financewallet.app.ui.imports.ImportScreen
 import ph.financewallet.app.ui.imports.ImportViewModel
 import ph.financewallet.app.ui.imports.RulesScreen
 import ph.financewallet.app.ui.imports.RulesViewModel
+import ph.financewallet.app.ui.theme.AppIcons
 import ph.financewallet.app.ui.transactions.EntryScreen
 import ph.financewallet.app.ui.transactions.EntryViewModel
 import ph.financewallet.app.ui.transactions.TransactionsScreen
@@ -74,6 +89,7 @@ class PrivacyActions(
     val confirmPin: (CharArray) -> Boolean,
     val wipe: suspend () -> Unit,
     val onDeleted: () -> Unit,
+    val crashLog: ph.financewallet.app.diagnostics.CrashLog,
 )
 
 @Composable
@@ -84,27 +100,58 @@ fun AppNavigation(
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val current = backStack?.destination?.route
+    val isTopLevel = current == null || TopLevel.entries.any { it.route == current }
+    // The tab that owns the visible screen (e.g. More while Bills is open), so the bar always shows where the user is.
+    // Sub-screens are pushed on top of the tab they were opened from, so the last top-level screen shown owns them.
+    var owningTab by rememberSaveable { mutableStateOf(TopLevel.HOME.route) }
+    LaunchedEffect(current) { if (current != null && TopLevel.entries.any { it.route == current }) owningTab = current }
     Scaffold(
+        topBar = { if (!isTopLevel) BackBar(onBack = { nav.popBackStack() }) },
         bottomBar = {
-            NavigationBar {
+            NavigationBar(tonalElevation = 0.dp) {
                 TopLevel.entries.forEach { dest ->
                     NavigationBarItem(
-                        selected = current == dest.route,
-                        onClick = { nav.goTopLevel(dest.route) },
-                        // Icons arrive with the visual design pass; text labels keep the bar accessible meanwhile.
-                        icon = {},
-                        label = { Text(stringResource(dest.label)) },
+                        selected = owningTab == dest.route,
+                        onClick = {
+                            // Re-tapping the current tab returns to its first screen; another tab restores its own stack.
+                            if (owningTab == dest.route) nav.popBackStack(dest.route, inclusive = false) else nav.goTopLevel(dest.route)
+                        },
+                        icon = { Icon(dest.icon(), contentDescription = null) },
+                        label = { Text(stringResource(dest.label), maxLines = 1) },
+                        colors =
+                            NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                            ),
                     )
                 }
             }
         },
     ) { padding ->
-        NavHost(nav, startDestination = TopLevel.HOME.route, modifier = Modifier.padding(padding)) {
+        NavHost(
+            nav,
+            startDestination = TopLevel.HOME.route,
+            modifier = Modifier.padding(padding).consumeWindowInsets(padding),
+        ) {
             topLevelRoutes(nav, services)
             featureRoutes(nav, services)
             dataRoutes(services, privacy)
         }
     }
+}
+
+/** Sub-screens show a back arrow; their own heading stays in the content, so the bar has no title. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BackBar(onBack: () -> Unit) {
+    TopAppBar(
+        title = {},
+        navigationIcon = {
+            IconButton(onClick = onBack) { Icon(AppIcons.Back, contentDescription = stringResource(R.string.action_back)) }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+    )
 }
 
 private fun NavHostController.goTopLevel(route: String) =
@@ -187,6 +234,7 @@ private fun NavGraphBuilder.dataRoutes(
             backup = viewModel { BackupViewModel(services) },
             delete = viewModel { DeleteAllViewModel(privacy.confirmPin, privacy.wipe) },
             onDeleted = privacy.onDeleted,
+            crashLog = privacy.crashLog,
         )
     }
 }

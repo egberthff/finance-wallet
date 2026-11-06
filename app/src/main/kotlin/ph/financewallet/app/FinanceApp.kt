@@ -1,8 +1,10 @@
 package ph.financewallet.app
 
 import android.app.Application
+import android.os.Build
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import ph.financewallet.app.diagnostics.CrashLog
 import ph.financewallet.app.security.AppLockController
 import ph.financewallet.app.security.PinStore
 import ph.financewallet.data.db.EncryptedDatabaseFactory
@@ -23,6 +25,20 @@ class AppContainer(
         AndroidKeystoreKeyWrapper(PIN_ALIAS).destroy()
     },
 ) {
+    /** Local crash reports (no network): types and code locations only, saved by the user from Privacy & data. */
+    val crashLog: CrashLog by lazy {
+        val version =
+            app.packageManager
+                .getPackageInfo(app.packageName, 0)
+                .versionName
+                .orEmpty()
+        CrashLog(
+            File(app.noBackupFilesDir, "crash"),
+            appVersion = version,
+            device = "${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE}",
+        )
+    }
+
     val lockController: AppLockController by lazy {
         AppLockController(PinStore(File(app.noBackupFilesDir, "lock"), AndroidKeystoreKeyWrapper(PIN_ALIAS)))
     }
@@ -57,6 +73,18 @@ class AppContainer(
     }
 
     /**
+     * R-11: the database key could not be unwrapped. Moves the unreadable database and its wrapped key aside (kept, not
+     * deleted); after a restart the app has a new empty database, into which the user restores a backup file.
+     */
+    suspend fun setAsideUnreadableData() {
+        databaseLock.withLock {
+            openDatabase?.close()
+            openDatabase = null
+            EncryptedDatabaseFactory.setAsideUnreadable(app, System.currentTimeMillis())
+        }
+    }
+
+    /**
      * UC-31: deletes everything this app stores on the phone: the database and its key, the PIN, local copies and
      * reminders. The caller restarts the app afterwards, which then starts from PIN setup.
      */
@@ -86,6 +114,7 @@ class FinanceApp : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        container.crashLog.install()
         // Re-arm the daily bill check (BILL-03); inexact, so the OS may batch or delay it.
         ph.financewallet.app.reminders.BillReminders
             .schedule(this)

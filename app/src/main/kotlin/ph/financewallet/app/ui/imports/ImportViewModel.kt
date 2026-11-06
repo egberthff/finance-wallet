@@ -84,6 +84,8 @@ data class ImportState(
     val preview: ImportPreview? = null,
     val decisions: Map<Int, RowDecision> = emptyMap(),
     val categories: List<Option> = emptyList(),
+    /** Income categories; the others are expense categories. Each preview row offers only the kind that fits its sign. */
+    val incomeCategoryIds: Set<String> = emptySet(),
     val result: CommitResult? = null,
     val busy: Boolean = false,
     val error: Int? = null,
@@ -105,8 +107,17 @@ class ImportViewModel(
 
     suspend fun loadOptions() {
         val accounts = s.accounts.accounts().map { Option(it.id, it.name) }
-        val categories = s.categories.categories().map { Option(it.id, it.name) }
-        mutable.update { it.copy(accounts = accounts, accountId = it.accountId ?: accounts.firstOrNull()?.id, categories = categories) }
+        val rows = s.categories.categories()
+        val categories = rows.map { Option(it.id, it.name) }
+        val income = rows.filter { it.accountClass == ph.financewallet.domain.ledger.AccountClass.INCOME.name }.map { it.id }.toSet()
+        mutable.update {
+            it.copy(
+                accounts = accounts,
+                accountId = it.accountId ?: accounts.firstOrNull()?.id,
+                categories = categories,
+                incomeCategoryIds = income,
+            )
+        }
     }
 
     fun chooseAccount(id: String) = mutable.update { it.copy(accountId = id) }
@@ -253,7 +264,15 @@ class ImportViewModel(
         return s.accounts.reconcile(preview.accountId, asOf, closing, createAdjustment, "import-recon:${st.result?.batchId}").errorRes()
     }
 
-    fun restart() = mutable.update { ImportState(accounts = it.accounts, accountId = it.accountId, categories = it.categories) }
+    fun restart() =
+        mutable.update {
+            ImportState(
+                accounts = it.accounts,
+                accountId = it.accountId,
+                categories = it.categories,
+                incomeCategoryIds = it.incomeCategoryIds,
+            )
+        }
 
     private companion object {
         const val DATE_SAMPLE = 200

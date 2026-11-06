@@ -10,7 +10,13 @@ enum class PassphraseProblem { TOO_SHORT, TOO_COMMON, TOO_REPETITIVE, MISMATCH }
  */
 object PassphrasePolicy {
     const val MIN_LENGTH = 10
-    private const val RESOURCE = "common-passwords.txt"
+
+    /**
+     * Absolute path on purpose: R8 renames and repackages this class in release builds, so a path relative to the
+     * class's package is not found and typing a backup passphrase crashed the release app (found on the emulator,
+     * 2026-11-06). The resource itself keeps its original path in the APK.
+     */
+    internal const val RESOURCE = "/ph/financewallet/data/backup/common-passwords.txt"
     private const val STRONG_LENGTH = 16
     private const val GOOD_LENGTH = 12
     private const val MANY_CLASSES = 3
@@ -32,11 +38,25 @@ object PassphrasePolicy {
         return when {
             passphrase.size < MIN_LENGTH -> PassphraseProblem.TOO_SHORT
             text.toSet().size == 1 -> PassphraseProblem.TOO_REPETITIVE
-            text.lowercase() in common -> PassphraseProblem.TOO_COMMON
+            isCommon(text) -> PassphraseProblem.TOO_COMMON
             confirmation != null && !confirmation.contentEquals(passphrase) -> PassphraseProblem.MISMATCH
             else -> null
         }
     }
+
+    /**
+     * Common as typed, or a common password padded with digits and symbols ("password123", "Iloveyou2024!"): the
+     * 10k list has few entries of 10+ characters, and padding a common word is the most frequent way people reach the
+     * minimum length. The core must keep [MIN_CORE] characters so short cores ("ab" + digits) are not over-matched.
+     */
+    private fun isCommon(text: String): Boolean {
+        val lower = text.lowercase()
+        if (lower in common) return true
+        val core = lower.trim { !it.isLetter() }
+        return core.length >= MIN_CORE && core != lower && core in common
+    }
+
+    private const val MIN_CORE = 4
 
     /**
      * Strength for the meter, 0 (refused) to 4. Only a guide: length counts most; mixing letter case, digits and symbols
