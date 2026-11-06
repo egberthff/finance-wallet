@@ -20,7 +20,7 @@ honestly record every device-only check deferred from Phases 3–7.
 | 8.1 | App identity: name, application id, version 0.9.0-beta | merged manifest, APK badging |
 | 8.2 | End-to-end journey test (§19 journeys 1–11, 13) with integrity checks | `EndToEndJourneyTest` |
 | 8.3 | Release build: R8 shrinking, signing key outside the repository, `apksigner verify`, permission audit | APK, verification output |
-| 8.4 | Virtual device: emulator (API 36 x86_64), install the release APK, smoke-test launch, PIN, DB open (SQLCipher native), backup KDF timing | emulator logs |
+| 8.4 | Owner's phone test of the release APK (checklist A–G: launch, lock, money features, reminders, import, backup/restore/reinstall, delete all) | filled checklist |
 | 8.5 | Dependency audit (known vulnerabilities of the pinned versions), security checklist against docs/16 | report in this file |
 | 8.6 | QA report: what passed, what failed, what stays unverified | §7 |
 
@@ -28,7 +28,9 @@ honestly record every device-only check deferred from Phases 3–7.
 This PC (i5-12500T, 8 GB RAM) has hardware virtualization enabled in firmware, but **no hypervisor is active** and the
 session has no administrator rights. The Android emulator needs Windows Hypervisor Platform (WHPX) or the Android Emulator
 Hypervisor Driver (AEHD) to run x86_64 images; both need administrator rights and WHPX needs a restart. The emulator and
-the API 36 system image are installed under `%USERPROFILE%\dev\android-sdk` so that only this step remains for the owner.
+the API 36 system image were being installed when the owner decided (2026-11-06) to drop the emulator. The download was
+stopped and its partial files removed. The owner tests the release APK on a real phone with
+[docs/qa/device-test-checklist.md](../qa/device-test-checklist.md); results are recorded in §7.
 
 ## 5. Bank statement samples (Q-11), research 2026-11-06
 - No official sample statements or published export column layouts were found for GCash, Maya, BPI or BDO.
@@ -52,4 +54,10 @@ the API 36 system image are installed under `%USERPROFILE%\dev\android-sdk` so t
 | No accelerated emulator | Owner enables WHPX, or tests on a physical phone |
 
 ## 7. QA report
-Filled in as checks are executed.
+| Check | Status | Evidence |
+|---|---|---|
+| JVM/Robolectric suite (domain, importers, data, app) incl. EndToEndJourneyTest | Executed–Passed | `gradlew check`, 2026-11-06 |
+| Release APK: R8, signed (v2), id `ph.financemanager.app`, no network permissions, 10.4 MB (NFR-07 ≤ 40 MB) | Executed–Passed | apksigner verify, aapt2 badging |
+| Dependency audit: 132 release runtime artifacts against OSV | Executed: 0 advisories | api.osv.dev querybatch, 2026-11-06 |
+| Phone checklist A–G | **Not executed**: waiting for the owner's results | — |
+| NFR-02/03 with 50k+ transactions, Android 8.0 | Not executed | needs adb or an older device |
