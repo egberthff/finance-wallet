@@ -70,6 +70,8 @@ abstract class FinanceDatabase : RoomDatabase() {
 
     abstract fun accountDao(): ph.financewallet.data.account.AccountDao
 
+    abstract fun advancedDao(): ph.financewallet.data.advanced.AdvancedDao
+
     companion object {
         const val SCHEMA_VERSION: Int = 3
         const val FILE_NAME: String = "finance.db"

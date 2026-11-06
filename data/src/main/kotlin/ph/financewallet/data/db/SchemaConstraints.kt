@@ -225,7 +225,8 @@ internal object SchemaConstraints {
             Check(
                 "txn",
                 "CK_TXN_OCCURRENCE_REF",
-                "NEW.recurring_occurrence_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM occurrence o WHERE o.id = NEW.recurring_occurrence_id)",
+                "NEW.recurring_occurrence_id IS NOT NULL AND " +
+                    "NOT EXISTS (SELECT 1 FROM occurrence o WHERE o.id = NEW.recurring_occurrence_id)",
             ),
         )
 

@@ -33,6 +33,14 @@ data class TransactionListItem(
     val version: Long,
 )
 
+/** Optional list filters (report drill-down and export). */
+data class TxnFilter(
+    val categoryId: String? = null,
+    val from: LocalDate? = null,
+    val to: LocalDate? = null,
+    val postedOnly: Boolean = false,
+)
+
 data class TransactionPage(
     val items: List<TransactionListItem>,
     /** Null when there are no more items. */
@@ -53,9 +61,20 @@ class TransactionQueries(
         after: PageCursor? = null,
         accountId: String? = null,
         limit: Int = DEFAULT_PAGE,
+        filter: TxnFilter = TxnFilter(),
     ): TransactionPage {
         require(limit in 1..MAX_PAGE) { "limit must be in 1..$MAX_PAGE" }
-        val rows = dao.txnPage(after?.txnDate, after?.id, accountId, limit + 1)
+        val rows =
+            dao.txnPage(
+                after?.txnDate,
+                after?.id,
+                accountId,
+                limit + 1,
+                filter.categoryId,
+                filter.from?.toString(),
+                filter.to?.toString(),
+                filter.postedOnly,
+            )
         val pageRows = rows.take(limit)
         if (pageRows.isEmpty()) return TransactionPage(emptyList(), null)
         val entries = dao.entriesOf(pageRows.map { it.id }).groupBy { it.txnId }

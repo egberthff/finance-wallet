@@ -36,4 +36,16 @@ public object MoneyFormatter {
         val sign = if (money.minor < 0) MINUS else ""
         return sign + prefix + number
     }
+
+    /**
+     * Machine-readable decimal text for exports (RPT-04): `-1234.50`, ASCII minus, no grouping, no symbol, always the
+     * currency's full number of decimals. Computed with integer arithmetic only.
+     */
+    public fun plain(money: Money): String {
+        val digits = money.currency.minorDigits
+        val magnitude = BigInteger.valueOf(money.minor).abs()
+        val (whole, fraction) = magnitude.divideAndRemainder(BigInteger.TEN.pow(digits))
+        val number = if (digits == 0) whole.toString() else whole.toString() + "." + fraction.toString().padStart(digits, '0')
+        return (if (money.minor < 0) "-" else "") + number
+    }
 }

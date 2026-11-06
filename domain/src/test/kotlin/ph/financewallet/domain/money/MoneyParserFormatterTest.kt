@@ -88,4 +88,17 @@ class MoneyParserFormatterTest {
                 assertEquals(AmountParseResult.Ok(Money(minor, php)), MoneyParser.parse(text, php, allowNegative = true))
             }
         }
+
+    @Test
+    fun `plain export format is exact, ungrouped and round-trips through the parser`() {
+        val php = CurrencyCode.PHP
+        assertEquals("-1234567.05", MoneyFormatter.plain(Money(-123_456_705, php)))
+        assertEquals("0.00", MoneyFormatter.plain(Money(0, php)))
+        assertEquals("0.07", MoneyFormatter.plain(Money(7, php)))
+        assertEquals("1500", MoneyFormatter.plain(Money(1500, CurrencyCode.of("JPY"))))
+        listOf(1L, 99L, 100L, 123_456_789_012L, 99_999_999_999_999L).forEach { minor ->
+            val parsed = MoneyParser.parse(MoneyFormatter.plain(Money(minor, php)), php) as AmountParseResult.Ok
+            assertEquals(minor, parsed.money.minor)
+        }
+    }
 }

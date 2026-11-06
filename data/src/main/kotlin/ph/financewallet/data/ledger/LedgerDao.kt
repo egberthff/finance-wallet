@@ -119,12 +119,20 @@ interface LedgerDao {
 
     // ---- lists (keyset pagination on ix_txn_date, NFR-03) -------------------------------------------------
 
-    /** Live transactions strictly before the cursor (date, id), newest first; optionally only those touching [accountId]. */
+    /**
+     * Live transactions strictly before the cursor (date, id), newest first. Optional filters: touching [accountId];
+     * touching [categoryId] or one of its subcategories (report drill-down, RPT-03); dated within [from]..[to];
+     * [postedOnly] excludes pending ones (report figures count only posted transactions).
+     */
     @Query(
         """SELECT t.id, t.type, t.status, t.txn_date AS txnDate, t.description, t.merchant, t.version FROM txn t
            WHERE t.deleted_at IS NULL
              AND (:beforeDate IS NULL OR t.txn_date < :beforeDate OR (t.txn_date = :beforeDate AND t.id < :beforeId))
              AND (:accountId IS NULL OR EXISTS (SELECT 1 FROM entry e WHERE e.txn_id = t.id AND e.ledger_account_id = :accountId))
+             AND (:categoryId IS NULL OR EXISTS (SELECT 1 FROM entry e LEFT JOIN category c ON c.ledger_account_id = e.ledger_account_id
+                  WHERE e.txn_id = t.id AND (e.ledger_account_id = :categoryId OR c.parent_id = :categoryId)))
+             AND (:from IS NULL OR t.txn_date >= :from) AND (:to IS NULL OR t.txn_date <= :to)
+             AND (:postedOnly = 0 OR t.status = 'POSTED')
            ORDER BY t.txn_date DESC, t.id DESC LIMIT :limit""",
     )
     suspend fun txnPage(
@@ -132,6 +140,10 @@ interface LedgerDao {
         beforeId: String?,
         accountId: String?,
         limit: Int,
+        categoryId: String? = null,
+        from: String? = null,
+        to: String? = null,
+        postedOnly: Boolean = false,
     ): List<TxnListRow>
 
     @Query("SELECT * FROM entry WHERE txn_id IN (:txnIds) ORDER BY txn_id, line_no")
