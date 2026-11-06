@@ -58,6 +58,7 @@ room {
 dependencies {
     implementation(project(":domain"))
     api(project(":importers"))
+    implementation(libs.bouncycastle.prov)
     // api: FinanceDatabase (a RoomDatabase) is part of :data's public types; callers still go through services.
     api(libs.room.runtime)
     implementation(libs.room.ktx)
