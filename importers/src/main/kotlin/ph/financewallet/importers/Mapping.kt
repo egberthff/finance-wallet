@@ -166,7 +166,8 @@ public object MappingSuggester {
     private val BALANCE = listOf("running balance", "balance", "available balance", "ending balance")
     private val STATUS = listOf("status")
 
-    internal fun norm(s: String): String = s.lowercase().replace(Regex("[^a-z0-9]+"), " ").trim()
+    /** Header and type-cell normalization: lower-case letters and digits separated by single spaces. */
+    public fun norm(s: String): String = s.lowercase().replace(Regex("[^a-z0-9]+"), " ").trim()
 
     /** [datePattern], when given, is the user's choice and is used instead of detection (needed for ambiguous dates). */
     public fun suggest(

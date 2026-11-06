@@ -40,6 +40,8 @@ data class TxnHeader(
     val notes: String? = null,
     val referenceNo: String? = null,
     val source: String = "MANUAL",
+    /** Set only by statement import (UC-27): the batch this transaction belongs to, for rollback (UC-28). */
+    val importBatchId: String? = null,
 )
 
 data class NewAccount(
@@ -155,6 +157,15 @@ class LedgerService(
     suspend fun delete(
         txnId: String,
         reason: String? = null,
+    ): DomainResult<Unit> = softDelete(txnId, reason, "DELETE")
+
+    /** Import rollback (UC-28): same checks as [delete], recorded as an IMPORT_ROLLBACK revision. */
+    internal suspend fun deleteForImportRollback(txnId: String): DomainResult<Unit> = softDelete(txnId, null, "IMPORT_ROLLBACK")
+
+    private suspend fun softDelete(
+        txnId: String,
+        reason: String?,
+        revisionKind: String,
     ): DomainResult<Unit> =
         db.validatedWrite {
             run {
@@ -166,7 +177,7 @@ class LedgerService(
                 val now = ctx.nowMillis()
                 val deleted = current.copy(deletedAt = now, version = current.version + 1, updatedAt = now, hlc = ctx.nextHlc())
                 dao.updateTxn(deleted)
-                writeRevision(txnId, "DELETE", RevisionJson.of(current, entries), null, reason)
+                writeRevision(txnId, revisionKind, RevisionJson.of(current, entries), null, reason)
             }
         }
 
@@ -299,7 +310,7 @@ class LedgerService(
                 notes = header.notes,
                 referenceNo = header.referenceNo?.trim()?.ifEmpty { null },
                 source = header.source,
-                importBatchId = null,
+                importBatchId = header.importBatchId,
                 idempotencyKey = header.idempotencyKey,
                 reversesTxnId = draft.reversesTxnId,
                 refundOfTxnId = draft.refundOfTxnId,
