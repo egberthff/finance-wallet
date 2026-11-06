@@ -21,7 +21,20 @@ object Migrations {
             }
         }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2)
+    /**
+     * 2 → 3: debts and schedules (UC-11/12), assets and valuations (UC-25), recurring rules and occurrences (UC-22..24).
+     * Additive only. `txn.recurring_occurrence_id` gets its reference check as a trigger (adding a foreign key to an
+     * existing column would need the 12-step table rebuild of `txn`, which is avoided).
+     */
+    val MIGRATION_2_3: Migration =
+        object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                V3_TABLES.forEach(db::execSQL)
+                SchemaConstraints.v3Statements.forEach(db::execSQL)
+            }
+        }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
 
     private val V2_TABLES =
         listOf(
@@ -93,5 +106,55 @@ object Migrations {
             "CREATE INDEX `ix_alloc_goal` ON `allocation_entry` (`goal_id`)",
             "CREATE INDEX `ix_alloc_group` ON `allocation_entry` (`group_id`)",
             "CREATE INDEX `index_allocation_entry_category_id` ON `allocation_entry` (`category_id`)",
+        )
+
+    private val V3_TABLES =
+        listOf(
+            "CREATE TABLE `debt` (`ledger_account_id` TEXT NOT NULL, `kind` TEXT NOT NULL, `counterparty` TEXT, " +
+                "`original_minor` INTEGER NOT NULL, `start_date` TEXT NOT NULL, `interest_rate_bp` INTEGER, " +
+                "`interest_basis` TEXT, `payment_frequency` TEXT, `installment_minor` INTEGER, " +
+                "`installments_total` INTEGER, `due_day` INTEGER, `status` TEXT NOT NULL, " +
+                "`version` INTEGER NOT NULL DEFAULT 1, `updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, " +
+                "`hlc` TEXT NOT NULL, PRIMARY KEY(`ledger_account_id`), " +
+                "FOREIGN KEY(`ledger_account_id`) REFERENCES `financial_account`(`ledger_account_id`) " +
+                "ON UPDATE NO ACTION ON DELETE NO ACTION )",
+            "CREATE TABLE `debt_schedule_item` (`id` TEXT NOT NULL, `debt_id` TEXT NOT NULL, `seq` INTEGER NOT NULL, " +
+                "`due_date` TEXT NOT NULL, `amount_due_minor` INTEGER NOT NULL, `paid_txn_id` TEXT, " +
+                "`version` INTEGER NOT NULL DEFAULT 1, `updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, " +
+                "`hlc` TEXT NOT NULL, PRIMARY KEY(`id`), " +
+                "FOREIGN KEY(`debt_id`) REFERENCES `debt`(`ledger_account_id`) ON UPDATE NO ACTION ON DELETE NO ACTION , " +
+                "FOREIGN KEY(`paid_txn_id`) REFERENCES `txn`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+            "CREATE UNIQUE INDEX `index_debt_schedule_item_debt_id_seq` ON `debt_schedule_item` (`debt_id`, `seq`)",
+            "CREATE INDEX `index_debt_schedule_item_paid_txn_id` ON `debt_schedule_item` (`paid_txn_id`)",
+            "CREATE TABLE `asset` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `kind` TEXT NOT NULL, " +
+                "`currency` TEXT NOT NULL, `include_in_net_worth` INTEGER NOT NULL DEFAULT 1, `notes` TEXT, " +
+                "`archived_at` INTEGER, `created_at` INTEGER NOT NULL, `version` INTEGER NOT NULL DEFAULT 1, " +
+                "`updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, `hlc` TEXT NOT NULL, PRIMARY KEY(`id`))",
+            "CREATE TABLE `asset_valuation` (`id` TEXT NOT NULL, `asset_id` TEXT NOT NULL, `as_of_date` TEXT NOT NULL, " +
+                "`value_minor` INTEGER NOT NULL, `note` TEXT, `deleted_at` INTEGER, `version` INTEGER NOT NULL DEFAULT 1, " +
+                "`updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, `hlc` TEXT NOT NULL, PRIMARY KEY(`id`), " +
+                "FOREIGN KEY(`asset_id`) REFERENCES `asset`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+            "CREATE INDEX `ix_valuation` ON `asset_valuation` (`asset_id`, `as_of_date`)",
+            "CREATE TABLE `recurring_rule` (`id` TEXT NOT NULL, `kind` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                "`amount_minor` INTEGER NOT NULL, `currency` TEXT NOT NULL, " +
+                "`amount_is_estimate` INTEGER NOT NULL DEFAULT 0, `frequency` TEXT NOT NULL, `interval_n` INTEGER, " +
+                "`day1` INTEGER, `day2` INTEGER, `month_of_year` INTEGER, `anchor_date` TEXT NOT NULL, `end_date` TEXT, " +
+                "`account_id` TEXT, `category_id` TEXT, `template_json` TEXT, `auto_post` INTEGER NOT NULL DEFAULT 0, " +
+                "`reminder_days_before` INTEGER, `status` TEXT NOT NULL, `created_at` INTEGER NOT NULL, " +
+                "`version` INTEGER NOT NULL DEFAULT 1, `updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, " +
+                "`hlc` TEXT NOT NULL, PRIMARY KEY(`id`), " +
+                "FOREIGN KEY(`account_id`) REFERENCES `financial_account`(`ledger_account_id`) ON UPDATE NO ACTION ON DELETE NO ACTION , " +
+                "FOREIGN KEY(`category_id`) REFERENCES `category`(`ledger_account_id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+            "CREATE INDEX `index_recurring_rule_account_id` ON `recurring_rule` (`account_id`)",
+            "CREATE INDEX `index_recurring_rule_category_id` ON `recurring_rule` (`category_id`)",
+            "CREATE TABLE `occurrence` (`id` TEXT NOT NULL, `rule_id` TEXT NOT NULL, `due_date` TEXT NOT NULL, " +
+                "`amount_minor` INTEGER NOT NULL, `status` TEXT NOT NULL, `paid_txn_id` TEXT, " +
+                "`version` INTEGER NOT NULL DEFAULT 1, `updated_at` INTEGER NOT NULL, `updated_by_device` TEXT NOT NULL, " +
+                "`hlc` TEXT NOT NULL, PRIMARY KEY(`id`), " +
+                "FOREIGN KEY(`rule_id`) REFERENCES `recurring_rule`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , " +
+                "FOREIGN KEY(`paid_txn_id`) REFERENCES `txn`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+            "CREATE UNIQUE INDEX `index_occurrence_rule_id_due_date` ON `occurrence` (`rule_id`, `due_date`)",
+            "CREATE INDEX `ix_occurrence_due` ON `occurrence` (`due_date`, `status`)",
+            "CREATE INDEX `index_occurrence_paid_txn_id` ON `occurrence` (`paid_txn_id`)",
         )
 }

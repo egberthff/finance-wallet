@@ -9,17 +9,23 @@ import androidx.sqlite.db.SupportSQLiteOpenHelper
 import ph.financewallet.data.db.entity.AllocationEntryEntity
 import ph.financewallet.data.db.entity.AllocationGroupEntity
 import ph.financewallet.data.db.entity.AppMetaEntity
+import ph.financewallet.data.db.entity.AssetEntity
+import ph.financewallet.data.db.entity.AssetValuationEntity
 import ph.financewallet.data.db.entity.AuditEventEntity
 import ph.financewallet.data.db.entity.BudgetAccountEntity
 import ph.financewallet.data.db.entity.BudgetCategoryEntity
 import ph.financewallet.data.db.entity.BudgetEntity
 import ph.financewallet.data.db.entity.BudgetPeriodEntity
 import ph.financewallet.data.db.entity.CategoryEntity
+import ph.financewallet.data.db.entity.DebtEntity
+import ph.financewallet.data.db.entity.DebtScheduleItemEntity
 import ph.financewallet.data.db.entity.EntryEntity
 import ph.financewallet.data.db.entity.FinancialAccountEntity
 import ph.financewallet.data.db.entity.GoalAccountEntity
 import ph.financewallet.data.db.entity.LedgerAccountEntity
+import ph.financewallet.data.db.entity.OccurrenceEntity
 import ph.financewallet.data.db.entity.ReconciliationEntity
+import ph.financewallet.data.db.entity.RecurringRuleEntity
 import ph.financewallet.data.db.entity.SavingsGoalEntity
 import ph.financewallet.data.db.entity.TxnEntity
 import ph.financewallet.data.db.entity.TxnRevisionEntity
@@ -46,6 +52,13 @@ import ph.financewallet.data.db.entity.TxnRevisionEntity
         GoalAccountEntity::class,
         AllocationGroupEntity::class,
         AllocationEntryEntity::class,
+        // v3
+        DebtEntity::class,
+        DebtScheduleItemEntity::class,
+        AssetEntity::class,
+        AssetValuationEntity::class,
+        RecurringRuleEntity::class,
+        OccurrenceEntity::class,
     ],
 )
 abstract class FinanceDatabase : RoomDatabase() {
@@ -58,7 +71,7 @@ abstract class FinanceDatabase : RoomDatabase() {
     abstract fun accountDao(): ph.financewallet.data.account.AccountDao
 
     companion object {
-        const val SCHEMA_VERSION: Int = 2
+        const val SCHEMA_VERSION: Int = 3
         const val FILE_NAME: String = "finance.db"
 
         /**

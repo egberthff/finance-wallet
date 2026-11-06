@@ -1,6 +1,6 @@
 # Database Schema, ERD & Migration Policy
 
-| Status | Phase 2 draft v1 (2026-11-05). Implemented schema version **2** (Phase 4) |
+| Status | Phase 2 draft v1 (2026-11-05). Implemented schema version **3** (Phase 5) |
 |---|---|
 | Engine | SQLite (SQLCipher 4.x) via Room 2.8 (ADR-0002) |
 | Semantics | [10-domain-model.md](10-domain-model.md) |
@@ -15,6 +15,15 @@
 >    `audit_event`, `app_meta`. The remaining tables arrive in forward-only migrations as their features are built
 >    (budgets/goals Phase 4, debts/recurring/assets Phase 5, import/reconciliation/attachments/rules Phase 6), each with its
 >    constraint triggers and a MigrationTestHelper test. Foreign keys to not-yet-created tables (e.g., `txn.import_batch_id`) are added by those migrations.
+
+> **Implementation notes (Phase 5, schema v3, 2026-11-06)**
+> 1. **Migration 2→3** adds `debt`, `debt_schedule_item`, `asset`, `asset_valuation`, `recurring_rule`, `occurrence` (§3.5–3.6) with
+>    their CHECK triggers. Additive only. Room adds indexes on FK child columns (`debt_schedule_item.paid_txn_id`,
+>    `recurring_rule.account_id`, `recurring_rule.category_id`, `occurrence.paid_txn_id`); `ix_valuation` is ascending.
+> 2. `txn.recurring_occurrence_id` (a v1 column) is checked by trigger `CK_TXN_OCCURRENCE_REF` instead of a foreign key, because adding
+>    a foreign key to an existing column would need the 12-step rebuild of `txn`.
+> 3. Extra triggers: `CK_OCC_PAID_LINK` (an occurrence is PAID exactly when a transaction is linked, BILL-02) and
+>    `CK_RULE_AUTO_POST_KIND` (only RECURRING_TXN rules may auto-post, INC-03).
 
 The DDL below is the **reference**. Room entities must produce an equivalent schema, and Phase 3 adds a test that compares the
 Room-exported schema JSON with this document's table/column/index list.

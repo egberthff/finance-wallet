@@ -37,11 +37,12 @@ class MigrationTest {
     }
 
     @Test
-    fun `migration 1 to 2 keeps v1 data and matches the fresh-install schema`() =
+    fun `migrations 1 to 3 keep v1 data and match the fresh-install schema`() =
         runTest {
             helper.createDatabase(testDb, 1).use { v1 -> V1Fixture.populate(v1) }
 
-            val v2 = helper.runMigrationsAndValidate(testDb, 2, true, Migrations.MIGRATION_1_2)
+            helper.runMigrationsAndValidate(testDb, 2, true, Migrations.MIGRATION_1_2).close()
+            val v2 = helper.runMigrationsAndValidate(testDb, 3, true, Migrations.MIGRATION_2_3)
             assertEquals(V1Fixture.TXNS, count(v2, "txn"))
             assertEquals(V1Fixture.ENTRIES, count(v2, "entry"))
             assertEquals(V1Fixture.LEDGER_ACCOUNTS, count(v2, "ledger_account"))
@@ -81,6 +82,43 @@ class MigrationTest {
                         "VALUES ('ez', 't1', 9, 'a1', 0, 'PHP')",
                 )
             }
+        }
+    }
+
+    @Test
+    fun `v3 triggers - a bill is paid only with a linked transaction, auto-post only for templates`() {
+        helper.createDatabase(testDb, 1).use { v1 -> V1Fixture.populate(v1) }
+        helper.runMigrationsAndValidate(testDb, 2, true, Migrations.MIGRATION_1_2).close()
+        helper.runMigrationsAndValidate(testDb, 3, true, Migrations.MIGRATION_2_3).use { db ->
+            fun rule(
+                id: String,
+                kind: String,
+                autoPost: Int,
+            ) = db.execSQL(
+                "INSERT INTO recurring_rule(id, kind, name, amount_minor, currency, amount_is_estimate, frequency, interval_n, day1, " +
+                    "day2, month_of_year, anchor_date, end_date, account_id, category_id, template_json, auto_post, " +
+                    "reminder_days_before, status, created_at, version, updated_at, updated_by_device, hlc) VALUES " +
+                    "('$id', '$kind', 'Internet', 169900, 'PHP', 0, 'MONTHLY', NULL, 15, NULL, NULL, '2026-11-15', NULL, " +
+                    "NULL, NULL, NULL, $autoPost, 3, 'ACTIVE', 0, 1, 0, 'dev', 'h')",
+            )
+
+            fun occurrence(
+                id: String,
+                status: String,
+                txn: String?,
+            ) = db.execSQL(
+                "INSERT INTO occurrence(id, rule_id, due_date, amount_minor, status, paid_txn_id, version, updated_at, " +
+                    "updated_by_device, hlc) VALUES ('$id', 'r1', '2026-11-${10 + id.length}', 169900, '$status', " +
+                    "${txn?.let { "'$it'" } ?: "NULL"}, 1, 0, 'dev', 'h')",
+            )
+            rule("r1", "BILL", 0)
+            assertRejected("CK_RULE_AUTO_POST_KIND") { rule("r2", "BILL", 1) }
+            occurrence("o1", "UPCOMING", null)
+            assertRejected("CK_OCC_PAID_LINK") { occurrence("o22", "PAID", null) }
+            assertRejected("CK_OCC_PAID_LINK") { occurrence("o333", "UPCOMING", "t1") }
+            occurrence("o4444", "PAID", "t3")
+            assertRejected("CK_TXN_OCCURRENCE_REF") { db.execSQL("UPDATE txn SET recurring_occurrence_id = 'missing' WHERE id = 't2'") }
+            db.execSQL("UPDATE txn SET recurring_occurrence_id = 'o1' WHERE id = 't2'")
         }
     }
 

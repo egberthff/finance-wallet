@@ -65,7 +65,8 @@ class SchemaConformanceTest {
         val v2 =
             "reconciliation budget budget_category budget_account budget_period savings_goal goal_account " +
                 "allocation_group allocation_entry"
-        assertEquals("tables of schema v${FinanceDatabase.SCHEMA_VERSION}", "$v1 $v2".split(' ').toSet(), exported.keys)
+        val v3 = "debt debt_schedule_item asset asset_valuation recurring_rule occurrence"
+        assertEquals("tables of schema v${FinanceDatabase.SCHEMA_VERSION}", "$v1 $v2 $v3".split(' ').toSet(), exported.keys)
         exported.forEach { (table, columns) ->
             val expected = reference[table] ?: error("table '$table' is not in the reference DDL")
             assertEquals("columns of '$table'", expected, columns)
