@@ -38,5 +38,8 @@ class FinanceApp : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        // Re-arm the daily bill check (BILL-03); inexact, so the OS may batch or delay it.
+        ph.financewallet.app.reminders.BillReminders
+            .schedule(this)
     }
 }

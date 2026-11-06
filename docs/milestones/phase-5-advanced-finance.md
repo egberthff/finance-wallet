@@ -14,7 +14,7 @@ computed by deterministic domain code and cross-checked against an independent r
 | 5.1 | Schema v3 migration: `debt`, `debt_schedule_item`, `asset`, `asset_valuation`, `recurring_rule`, `occurrence`, with CHECK triggers, MigrationTestHelper test, pre-migration backup path | LOC-04 |
 | 5.2 | `:domain`: recurrence calculator (weekly … yearly, every N days, semi-monthly; closed-form), debt math (outstanding, equal-installment schedule, remaining), net worth with valuations, report calculator and date ranges (week/month/quarter/year/custom/budget period) | BILL-01, DEBT-01, NW-01/02, RPT-01..03 |
 | 5.3 | `:data` use cases: UC-11/12 (create debt, disbursement, payment split P/I/F linked to schedule), UC-22/23/24 (rules, occurrence window, mark paid by creating or linking a transaction, skip, opt-in auto-post), UC-25 (assets, valuations), report and net-worth query services, CSV export (UC-30) | DEBT-01..03, BILL-01/02, INC-02/03, AST-01, NW-01/02, RPT-01..04 |
-| 5.4 | Local reminders for due bills (WorkManager daily check, local notifications only, no network) | BILL-03 |
+| 5.4 | Local reminders for due bills (inexact daily AlarmManager check, local notifications only, no network). **Changed from WorkManager, see §4** | BILL-03 |
 | 5.5 | UI: Debts, Bills & subscriptions, Assets, Net worth (with history), Reports (ranges, tables and simple charts, drill-down to transactions), CSV export via the system file picker; dashboard "upcoming bills"; Phase 4 gaps: leftovers-to-reassign list and transaction edit | UX, RPT-03 |
 
 Out of scope: lender interest calculation (domain §7: interest is user-entered per payment), automatic investment valuation
@@ -26,7 +26,7 @@ Same discipline as Phase 4: domain first (pure, JVM-tested, ≥ 95 % coverage), 
 (no chart library, so no new dependency and no network-capable code). Reports read the money ledger only, never budgets (BUD-04).
 
 ## 4. Dependencies
-Phase 4 engine (done). WorkManager is the only new library (step 5.4); its version and APK impact are verified when it is added.
+Phase 4 engine (done). **No new library.** WorkManager 2.12.0 was evaluated (2026-11-06) and not used: its manifest requests ACCESS_NETWORK_STATE, which ADR-0010 forbids and our manifest strips (behaviour with the permission removed is only verifiable on a device), and it keeps its own unencrypted database. An inexact daily `AlarmManager` alarm plus a boot receiver meets BILL-03 (best-effort) with platform APIs only.
 Notification delivery timing can only be checked on a device: deferred to Phase 8 with the other device checks (owner decision).
 
 ## 5. Risks

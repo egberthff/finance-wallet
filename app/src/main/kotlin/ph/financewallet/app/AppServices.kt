@@ -2,6 +2,11 @@ package ph.financewallet.app
 
 import ph.financewallet.data.account.AccountService
 import ph.financewallet.data.account.CategoryService
+import ph.financewallet.data.advanced.AssetService
+import ph.financewallet.data.advanced.CsvExporter
+import ph.financewallet.data.advanced.DebtService
+import ph.financewallet.data.advanced.RecurringService
+import ph.financewallet.data.advanced.ReportService
 import ph.financewallet.data.budget.AllocationService
 import ph.financewallet.data.budget.BudgetService
 import ph.financewallet.data.budget.GoalService
@@ -28,6 +33,11 @@ class AppServices(
     val allocations = AllocationService(db, ctx)
     val goals = GoalService(db, ctx, ledger)
     val transactions = TransactionQueries(db)
+    val debts = DebtService(db, ctx, ledger)
+    val assets = AssetService(db, ctx)
+    val recurring = RecurringService(db, ctx, ledger)
+    val reports = ReportService(db, ledger)
+    val csv = CsvExporter(db, ctx)
 
     /** A fresh idempotency key for one user action (TXN-09: a double tap saves once). */
     fun newKey(): String = ctx.ids.newId()
