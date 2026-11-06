@@ -48,6 +48,7 @@ import ph.financewallet.domain.ledger.TxnType
 fun TransactionsScreen(
     vm: TransactionsViewModel,
     onAdd: () -> Unit,
+    onEdit: (String) -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     var deleting by remember { mutableStateOf<TransactionListItem?>(null) }
@@ -76,7 +77,7 @@ fun TransactionsScreen(
             }
         }
     }
-    deleting?.let { item -> DeleteDialog(vm, item, onDismiss = { deleting = null }) }
+    deleting?.let { item -> DeleteDialog(vm, item, onEdit = { onEdit(item.id) }, onDismiss = { deleting = null }) }
 }
 
 @Composable
@@ -137,13 +138,14 @@ private fun title(item: TransactionListItem): String {
 private fun DeleteDialog(
     vm: TransactionsViewModel,
     item: TransactionListItem,
+    onEdit: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     var error by remember { mutableStateOf<Int?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.txn_delete_title)) },
+        title = { Text(stringResource(R.string.txn_actions_title)) },
         text = {
             Column {
                 Text(stringResource(R.string.txn_delete_message))
@@ -158,7 +160,12 @@ private fun DeleteDialog(
                 }
             }) { Text(stringResource(R.string.action_delete)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = {
+            TextButton(onClick = {
+                onDismiss()
+                onEdit()
+            }) { Text(stringResource(R.string.action_edit)) }
+        },
     )
 }
 
@@ -167,11 +174,15 @@ private fun DeleteDialog(
 fun EntryScreen(
     vm: EntryViewModel,
     onDone: () -> Unit,
+    editTxnId: String? = null,
 ) {
     val form by vm.form.collectAsStateWithLifecycle()
     val options by vm.options.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var error by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(editTxnId) {
+        if (editTxnId != null && !vm.isEditing && !vm.loadExisting(editTxnId)) error = R.string.err_edit_not_supported
+    }
     val spacing = LocalSpacing.current
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(spacing.md),

@@ -188,7 +188,12 @@ class Phase5ServicesTest {
             assertEquals(listOf(LocalDate.of(2026, 9, 30), LocalDate.of(2026, 10, 31), today), history.map { it.first })
             assertEquals(listOf(p(70_500_000), p(68_500_000), p(68_200_000)), history.map { it.second })
 
-            assets.deleteValuation(oct).getOrThrow()
+            // a second value on the same date replaces the first, in the list and in net worth alike
+            assets.addValuation(car, LocalDate.of(2026, 10, 31), p(57_000_000)).getOrThrow()
+            assertEquals(p(57_000_000), reports.netWorth(today).single().otherAssets)
+            assertEquals(p(57_000_000), assets.assets().single().latestValue)
+            assets.addValuation(car, LocalDate.of(2026, 10, 31), p(58_000_000)).getOrThrow().let { assets.deleteValuation(it).getOrThrow() }
+            assertEquals("ALREADY_DELETED", assets.deleteValuation(oct).errorOrNull()?.code)
             assertEquals(p(60_000_000), reports.netWorth(today).single().otherAssets)
             assertEquals(p(60_000_000), assets.assets().single().latestValue)
         }

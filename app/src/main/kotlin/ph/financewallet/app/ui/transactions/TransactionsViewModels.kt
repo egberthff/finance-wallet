@@ -10,10 +10,17 @@ import ph.financewallet.app.AppServices
 import ph.financewallet.app.R
 import ph.financewallet.app.ui.common.errorRes
 import ph.financewallet.app.ui.common.parseAmount
+import ph.financewallet.data.ledger.EditableTxn
+import ph.financewallet.data.ledger.LedgerReads
 import ph.financewallet.data.ledger.PageCursor
 import ph.financewallet.data.ledger.TransactionListItem
 import ph.financewallet.data.ledger.TxnHeader
+import ph.financewallet.domain.common.DomainResult
+import ph.financewallet.domain.ledger.EntryTemplates
 import ph.financewallet.domain.ledger.Split
+import ph.financewallet.domain.ledger.TransactionDraft
+import ph.financewallet.domain.ledger.TxnType
+import ph.financewallet.domain.money.MoneyFormatter
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
 
@@ -120,6 +127,51 @@ class EntryViewModel(
 
     fun edit(change: (EntryForm) -> EntryForm) = mutableForm.update(change)
 
+    private var editing: EditableTxn? = null
+
+    /** True while the form edits an existing transaction instead of creating one. */
+    val isEditing: Boolean get() = editing != null
+
+    /**
+     * Prefills the form from an existing expense, income (one category) or transfer (TXN-06). Other types, or
+     * split transactions, return false: they cannot be edited with this simple form.
+     */
+    suspend fun loadExisting(txnId: String): Boolean {
+        val e = s.ledger.editable(txnId) ?: return false
+        val directory = s.ledger.directory()
+        val real = e.transaction.entries.filter { directory.find(it.accountId)?.accountClass?.isReal == true }
+        val categories = e.transaction.entries.filter { directory.find(it.accountId)?.accountClass?.isReal == false }
+        val form =
+            when (e.transaction.type) {
+                TxnType.EXPENSE, TxnType.INCOME -> {
+                    if (real.size != 1 || categories.size != 1) return false
+                    EntryForm(
+                        kind = if (e.transaction.type == TxnType.EXPENSE) EntryKind.EXPENSE else EntryKind.INCOME,
+                        amount = MoneyFormatter.plain(real.single().amount.let { if (it.isNegative) -it else it }),
+                        accountId = real.single().accountId,
+                        categoryId = categories.single().accountId,
+                    )
+                }
+
+                TxnType.TRANSFER -> {
+                    if (real.size != 2) return false
+                    EntryForm(
+                        kind = EntryKind.TRANSFER,
+                        amount = MoneyFormatter.plain(real.first { it.amount.isPositive }.amount),
+                        accountId = real.first { it.amount.isNegative }.accountId,
+                        toAccountId = real.first { it.amount.isPositive }.accountId,
+                    )
+                }
+
+                else -> {
+                    return false
+                }
+            }
+        editing = e
+        mutableForm.value = form.copy(date = e.header.txnDate.toString(), description = e.header.description)
+        return true
+    }
+
     /** Saves; returns an error message resource, or null on success (the form is then reset for the next entry). */
     suspend fun save(): Int? {
         val f = mutableForm.value
@@ -128,13 +180,25 @@ class EntryViewModel(
         val error = if (date == null) R.string.err_date_format else missingField(f) ?: amountError
         if (error != null || date == null || amount == null) return error ?: R.string.err_generic
         val account = checkNotNull(f.accountId)
+        val build: suspend (EntryTemplates, LedgerReads) -> DomainResult<TransactionDraft> = { t, _ ->
+            when (f.kind) {
+                EntryKind.EXPENSE -> t.expense(account, listOf(Split(checkNotNull(f.categoryId), amount)))
+                EntryKind.INCOME -> t.income(account, listOf(Split(checkNotNull(f.categoryId), amount)))
+                EntryKind.TRANSFER -> t.transfer(account, checkNotNull(f.toAccountId), amount)
+            }
+        }
+        val existing = editing
         val result =
-            s.ledger.record(TxnHeader(date, key, description = f.description)) { t, _ ->
-                when (f.kind) {
-                    EntryKind.EXPENSE -> t.expense(account, listOf(Split(checkNotNull(f.categoryId), amount)))
-                    EntryKind.INCOME -> t.income(account, listOf(Split(checkNotNull(f.categoryId), amount)))
-                    EntryKind.TRANSFER -> t.transfer(account, checkNotNull(f.toAccountId), amount)
-                }
+            if (existing == null) {
+                s.ledger.record(TxnHeader(date, key, description = f.description), build)
+            } else {
+                // UC-09: same transaction, new revision; the stored version guards against a stale edit.
+                s.ledger.edit(
+                    existing.transaction.id,
+                    existing.version,
+                    existing.header.copy(txnDate = date, description = f.description),
+                    build = build,
+                )
             }
         return result.errorRes().also {
             if (it == null) {

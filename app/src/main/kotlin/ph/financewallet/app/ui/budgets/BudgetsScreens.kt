@@ -45,6 +45,8 @@ import ph.financewallet.app.ui.components.LoadingState
 import ph.financewallet.app.ui.theme.LocalSpacing
 import ph.financewallet.app.ui.transactions.Option
 import ph.financewallet.data.budget.GoalSummary
+import ph.financewallet.data.budget.Leftover
+import ph.financewallet.data.budget.LeftoverResolution
 import ph.financewallet.domain.allocation.BudgetMath
 import ph.financewallet.domain.allocation.IncomeMode
 
@@ -98,7 +100,12 @@ fun BudgetsScreen(
                 }
 
                 else -> {
-                    BudgetList(state, onAction = { action = it }, onClose = { id -> scope.launch { vm.close(id) } })
+                    BudgetList(
+                        state,
+                        onAction = { action = it },
+                        onClose = { id -> scope.launch { vm.close(id) } },
+                        onResolve = { l, r -> scope.launch { vm.resolve(l, r) } },
+                    )
                 }
             }
         }
@@ -112,12 +119,16 @@ private fun BudgetList(
     state: BudgetsState,
     onAction: (BudgetAction) -> Unit,
     onClose: (String) -> Unit,
+    onResolve: (Leftover, LeftoverResolution) -> Unit,
 ) {
     LazyColumn(
         Modifier.fillMaxSize().padding(horizontal = LocalSpacing.current.md),
         verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.md),
     ) {
-        items(state.budgets, key = { it.id }) { card -> BudgetCardView(card, state.categoryNames, onAction, onClose) }
+        items(state.budgets, key = { it.id }) { card ->
+            BudgetCardView(card, state.categoryNames, onAction, onClose)
+            state.leftovers[card.id]?.let { LeftoverList(it, state.categoryNames, onResolve) }
+        }
     }
 }
 
@@ -155,6 +166,32 @@ private fun BudgetActionDialog(
         },
         onDismiss = onDismiss,
     )
+}
+
+/** MANUAL rollover: leftovers of closed periods, each resolved once (BUD-07). */
+@Composable
+private fun LeftoverList(
+    leftovers: List<Leftover>,
+    names: Map<String, String>,
+    onResolve: (Leftover, LeftoverResolution) -> Unit,
+) {
+    val spacing = LocalSpacing.current
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            Text(stringResource(R.string.budget_leftovers_title), style = MaterialTheme.typography.titleSmall)
+            leftovers.forEach { l ->
+                LabeledRow(names[l.categoryId].orEmpty()) { AmountText(l.amount) }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    OutlinedButton(
+                        onClick = { onResolve(l, LeftoverResolution.CarryToNextPeriod) },
+                    ) { Text(stringResource(R.string.budget_leftover_carry)) }
+                    TextButton(
+                        onClick = { onResolve(l, LeftoverResolution.Expire) },
+                    ) { Text(stringResource(R.string.budget_leftover_expire)) }
+                }
+            }
+        }
+    }
 }
 
 @Composable

@@ -225,6 +225,23 @@ class LedgerService(
 
     suspend fun revisionCount(txnId: String): Int = dao.lastRevisionNo(txnId)
 
+    /** A live transaction with its header and version, for an edit form (UC-09). Null if missing or deleted. */
+    suspend fun editable(txnId: String): EditableTxn? {
+        val t = dao.txn(txnId)?.takeIf { it.deletedAt == null } ?: return null
+        val header =
+            TxnHeader(
+                txnDate = LocalDate.parse(t.txnDate),
+                idempotencyKey = t.idempotencyKey,
+                status = TxnStatus.valueOf(t.status),
+                description = t.description,
+                merchant = t.merchant,
+                notes = t.notes,
+                referenceNo = t.referenceNo,
+                source = t.source,
+            )
+        return EditableTxn(checkNotNull(loadTransaction(txnId)), header, t.version)
+    }
+
     suspend fun loadTransaction(id: String): LedgerTransaction? {
         val t = dao.txn(id) ?: return null
         return LedgerTransaction(
@@ -398,6 +415,12 @@ class LedgerService(
         const val MAX_REFERENCE = 64
     }
 }
+
+data class EditableTxn(
+    val transaction: LedgerTransaction,
+    val header: TxnHeader,
+    val version: Long,
+)
 
 /** Read access offered to transaction builders. */
 interface LedgerReads {

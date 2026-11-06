@@ -62,6 +62,8 @@ data class HomeState(
     val monthSpending: Money = Money.zero(CurrencyCode.PHP),
     val recent: List<TransactionListItem> = emptyList(),
     val hasAccounts: Boolean = false,
+    /** Unpaid bills due in the next 7 days or overdue (never counted as paid until a transaction is linked). */
+    val upcomingBills: List<ph.financewallet.data.advanced.UpcomingItem> = emptyList(),
 )
 
 class HomeViewModel(
@@ -94,11 +96,24 @@ class HomeViewModel(
             monthSpending = month?.spending ?: Money.zero(php),
             recent = s.transactions.page(limit = RECENT).items,
             hasAccounts = accounts.isNotEmpty(),
+            upcomingBills =
+                s.recurring
+                    .upcoming(today.minusDays(BILLS_BACK), today.plusDays(BILLS_AHEAD))
+                    .filter { it.kind != ph.financewallet.data.advanced.RuleKind.EXPECTED_INCOME }
+                    .filter {
+                        it.state !in
+                            setOf(
+                                ph.financewallet.data.advanced.OccurrenceState.PAID,
+                                ph.financewallet.data.advanced.OccurrenceState.SKIPPED,
+                            )
+                    },
         )
     }
 
     private companion object {
         const val RECENT = 5
+        const val BILLS_BACK = 31L
+        const val BILLS_AHEAD = 7L
     }
 }
 
@@ -106,6 +121,7 @@ class HomeViewModel(
 fun HomeScreen(
     vm: HomeViewModel,
     onAddTransaction: () -> Unit,
+    onBills: () -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.refresh() }
@@ -132,6 +148,13 @@ fun HomeScreen(
             }
         }
         item { Button(onClick = onAddTransaction, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.txn_add)) } }
+        if (state.upcomingBills.isNotEmpty()) {
+            item { SectionTitle(stringResource(R.string.home_upcoming_bills)) }
+            items(state.upcomingBills, key = { "b" + it.occurrenceId }) { b ->
+                LabeledRow("${b.name} · ${b.dueDate}") { AmountText(-b.amount) }
+            }
+            item { TextButton(onClick = onBills) { Text(stringResource(R.string.bills_title)) } }
+        }
         if (state.recent.isNotEmpty()) item { SectionTitle(stringResource(R.string.home_recent)) }
         items(state.recent, key = { it.id }) { t ->
             LabeledRow(t.description.ifBlank { t.categoryNames.joinToString(", ").ifBlank { t.accountName } }) { AmountText(t.amount) }
@@ -257,12 +280,24 @@ private fun AddCategoryDialog(
 fun MoreScreen(
     onGoals: () -> Unit,
     onCategories: () -> Unit,
+    onDebts: () -> Unit,
+    onBills: () -> Unit,
+    onAssets: () -> Unit,
+    onReports: () -> Unit,
 ) {
     val spacing = LocalSpacing.current
     Column(Modifier.fillMaxSize().padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         SectionTitle(stringResource(R.string.nav_more))
-        OutlinedButton(onClick = onGoals, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.goals_title)) }
-        OutlinedButton(onClick = onCategories, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.categories_title)) }
+        listOf(
+            R.string.reports_title to onReports,
+            R.string.bills_title to onBills,
+            R.string.debts_title to onDebts,
+            R.string.goals_title to onGoals,
+            R.string.assets_title to onAssets,
+            R.string.categories_title to onCategories,
+        ).forEach { (label, action) ->
+            OutlinedButton(onClick = action, modifier = Modifier.fillMaxWidth()) { Text(stringResource(label)) }
+        }
         Text(stringResource(R.string.more_not_built), style = MaterialTheme.typography.bodySmall)
     }
 }

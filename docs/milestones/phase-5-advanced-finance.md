@@ -1,6 +1,6 @@
 # Milestone Plan: Phase 5, Advanced Finance Features
 
-| Status | **In progress** (owner approved "proceed to Phase 5", 2026-11-06) |
+| Status | **Implemented (2026-11-06)**: steps 5.1–5.5 with JVM/Robolectric evidence for AC-ADV-1..8 (PROGRESS.md). Device-only checks (notification delivery, performance, Maestro journey 10) reserved for Phase 8. |
 |---|---|
 
 ## 1. Objectives

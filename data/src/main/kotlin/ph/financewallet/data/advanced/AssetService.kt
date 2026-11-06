@@ -90,7 +90,7 @@ class AssetService(
             dao.updateAsset(touch(a).copy(archivedAt = ctx.nowMillis(), includeInNetWorth = false))
         }
 
-    /** Records the asset's value on [asOf] (not in the future). */
+    /** Records the asset's value on [asOf] (not in the future), replacing any earlier value for the same date. */
     suspend fun addValuation(
         assetId: String,
         asOf: LocalDate,
@@ -104,8 +104,12 @@ class AssetService(
             ensure(!value.isNegative, "value", "AMOUNT_NEGATIVE")
             ensure(!asOf.isAfter(ctx.today()), "asOf", "DATE_IN_FUTURE")
             ensure((note?.length ?: 0) <= MAX_NOTE, "note", "TOO_LONG")
-            val id = ctx.ids.newId()
             val now = ctx.nowMillis()
+            // One value per asset per day: a new value for the same date supersedes the earlier one (kept, soft-deleted).
+            dao.valuations(assetId).filter { it.asOfDate == asOf.toString() }.forEach { old ->
+                dao.updateValuation(old.copy(deletedAt = now, version = old.version + 1, updatedAt = now, hlc = ctx.nextHlc()))
+            }
+            val id = ctx.ids.newId()
             dao.insertValuation(
                 AssetValuationEntity(
                     id,

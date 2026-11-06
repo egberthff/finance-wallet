@@ -19,6 +19,14 @@ import androidx.navigation.compose.rememberNavController
 import ph.financewallet.app.AppServices
 import ph.financewallet.app.ui.accounts.AccountsScreen
 import ph.financewallet.app.ui.accounts.AccountsViewModel
+import ph.financewallet.app.ui.advanced.AssetsScreen
+import ph.financewallet.app.ui.advanced.AssetsViewModel
+import ph.financewallet.app.ui.advanced.BillsScreen
+import ph.financewallet.app.ui.advanced.BillsViewModel
+import ph.financewallet.app.ui.advanced.DebtsScreen
+import ph.financewallet.app.ui.advanced.DebtsViewModel
+import ph.financewallet.app.ui.advanced.ReportsScreen
+import ph.financewallet.app.ui.advanced.ReportsViewModel
 import ph.financewallet.app.ui.budgets.BudgetsScreen
 import ph.financewallet.app.ui.budgets.BudgetsViewModel
 import ph.financewallet.app.ui.budgets.GoalsScreen
@@ -34,8 +42,13 @@ import ph.financewallet.app.ui.transactions.TransactionsScreen
 import ph.financewallet.app.ui.transactions.TransactionsViewModel
 
 private const val ENTRY = "entry"
+private const val EDIT = "edit"
 private const val GOALS = "goals"
 private const val CATEGORIES = "categories"
+private const val DEBTS = "debts"
+private const val BILLS = "bills"
+private const val ASSETS = "assets"
+private const val REPORTS = "reports"
 
 @Composable
 fun AppNavigation(services: AppServices) {
@@ -59,19 +72,42 @@ fun AppNavigation(services: AppServices) {
     ) { padding ->
         NavHost(nav, startDestination = TopLevel.HOME.route, modifier = Modifier.padding(padding)) {
             composable(TopLevel.HOME.route) {
-                HomeScreen(viewModel { HomeViewModel(services) }, onAddTransaction = { nav.navigate(ENTRY) })
+                HomeScreen(
+                    viewModel { HomeViewModel(services) },
+                    onAddTransaction = { nav.navigate(ENTRY) },
+                    onBills = { nav.navigate(BILLS) },
+                )
             }
             composable(TopLevel.TRANSACTIONS.route) {
-                TransactionsScreen(viewModel { TransactionsViewModel(services) }, onAdd = { nav.navigate(ENTRY) })
+                TransactionsScreen(
+                    viewModel { TransactionsViewModel(services) },
+                    onAdd = { nav.navigate(ENTRY) },
+                    onEdit = { id -> nav.navigate("$EDIT/$id") },
+                )
             }
             composable(TopLevel.BUDGETS.route) { BudgetsScreen(viewModel { BudgetsViewModel(services) }, services::newKey) }
             composable(TopLevel.ACCOUNTS.route) { AccountsScreen(viewModel { AccountsViewModel(services) }, services::newKey) }
             composable(TopLevel.MORE.route) {
-                MoreScreen(onGoals = { nav.navigate(GOALS) }, onCategories = { nav.navigate(CATEGORIES) })
+                MoreScreen(
+                    onGoals = { nav.navigate(GOALS) },
+                    onCategories = { nav.navigate(CATEGORIES) },
+                    onDebts = { nav.navigate(DEBTS) },
+                    onBills = { nav.navigate(BILLS) },
+                    onAssets = { nav.navigate(ASSETS) },
+                    onReports = { nav.navigate(REPORTS) },
+                )
             }
             composable(ENTRY) { EntryScreen(viewModel { EntryViewModel(services) }, onDone = { nav.popBackStack() }) }
+            composable("$EDIT/{txnId}") { entry ->
+                val id = entry.arguments?.getString("txnId")
+                EntryScreen(viewModel { EntryViewModel(services) }, onDone = { nav.popBackStack() }, editTxnId = id)
+            }
             composable(GOALS) { GoalsScreen(viewModel { GoalsViewModel(services) }, services::newKey) }
             composable(CATEGORIES) { CategoriesScreen(viewModel { CategoriesViewModel(services) }) }
+            composable(DEBTS) { DebtsScreen(viewModel { DebtsViewModel(services) }, services::newKey) }
+            composable(BILLS) { BillsScreen(viewModel { BillsViewModel(services) }, services::newKey) }
+            composable(ASSETS) { AssetsScreen(viewModel { AssetsViewModel(services) }) }
+            composable(REPORTS) { ReportsScreen(viewModel { ReportsViewModel(services) }) }
         }
     }
 }

@@ -15,6 +15,8 @@ import ph.financewallet.data.budget.BudgetCategorySpec
 import ph.financewallet.data.budget.BudgetSettings
 import ph.financewallet.data.budget.GoalDetails
 import ph.financewallet.data.budget.GoalSummary
+import ph.financewallet.data.budget.Leftover
+import ph.financewallet.data.budget.LeftoverResolution
 import ph.financewallet.data.budget.NewBudget
 import ph.financewallet.data.budget.PeriodOverview
 import ph.financewallet.domain.allocation.Bucket
@@ -40,6 +42,8 @@ data class BudgetsState(
     val categoryNames: Map<String, String> = emptyMap(),
     val expenseCategories: List<Option> = emptyList(),
     val goals: List<GoalSummary> = emptyList(),
+    /** Leftovers of closed periods waiting for a decision (MANUAL rollover policy), per budget id. */
+    val leftovers: Map<String, List<Leftover>> = emptyMap(),
 )
 
 /**
@@ -73,8 +77,22 @@ class BudgetsViewModel(
             categoryNames = categories.associate { it.id to it.name },
             expenseCategories = categories.filter { it.accountClass == "EXPENSE" && it.archivedAt == null }.map { Option(it.id, it.name) },
             goals = s.goals.goals().filter { it.status.name != "ARCHIVED" },
+            leftovers = cards.associate { it.id to s.budgets.leftovers(it.id) }.filterValues { it.isNotEmpty() },
         )
     }
+
+    /** Carry a leftover into the next period, sweep it to a goal, or let it lapse (recorded once). */
+    suspend fun resolve(
+        leftover: Leftover,
+        resolution: LeftoverResolution,
+    ): Int? =
+        s.budgets.resolveLeftover(leftover.periodId, leftover.categoryId, resolution).errorRes().also {
+            if (it ==
+                null
+            ) {
+                mutable.value = load()
+            }
+        }
 
     /**
      * Monthly budget starting on [startDayText] (1–31; days past the month's end use its last day, BUD-02).
