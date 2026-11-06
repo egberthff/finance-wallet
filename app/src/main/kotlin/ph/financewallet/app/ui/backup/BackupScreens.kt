@@ -131,7 +131,7 @@ private fun CreateSection(
             Button(
                 onClick = {
                     error = vm.passphraseProblem(pass, confirm)
-                    if (error == null) picker.launch("finance-wallet-${LocalDate.now(MANILA)}.fwbak")
+                    if (error == null) picker.launch("finance-manager-${LocalDate.now(MANILA)}.fwbak")
                 },
                 enabled = understood && !state.busy,
                 modifier = Modifier.fillMaxWidth(),
@@ -303,7 +303,7 @@ fun PrivacyScreen(
             confirmButton = {
                 TextButton(onClick = {
                     exportWarning = false
-                    picker.launch("finance-wallet-export-${LocalDate.now(MANILA)}.jsonl")
+                    picker.launch("finance-manager-export-${LocalDate.now(MANILA)}.jsonl")
                 }) { Text(stringResource(R.string.privacy_export_continue)) }
             },
             dismissButton = { TextButton(onClick = { exportWarning = false }) { Text(stringResource(R.string.action_cancel)) } },

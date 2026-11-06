@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Finance Wallet</string>
+    <string name="app_name">Finance Manager</string>
 
     <!-- Navigation (UX-02) -->
     <string name="nav_home">Home</string>
@@ -19,7 +19,7 @@
     <string name="lock_wrong_pin">Wrong PIN</string>
     <string name="lock_locked_out">Too many attempts. Try again in %1$d s.</string>
     <string name="lock_use_biometric">Use biometrics</string>
-    <string name="lock_biometric_title">Unlock Finance Wallet</string>
+    <string name="lock_biometric_title">Unlock Finance Manager</string>
     <string name="lock_biometric_negative">Use PIN</string>
     <string name="lock_delete">Delete</string>
     <string name="lock_digit_entered">%1$d of 6 digits entered</string>
@@ -413,7 +413,7 @@
     <string name="backup_err_write">The file could not be saved. Nothing was kept from the failed attempt; try another location.</string>
     <string name="backup_err_read">The file could not be read. Nothing was changed.</string>
     <string name="backup_err_restore">The restore failed. Nothing was changed.</string>
-    <string name="backup_err_not_backup">This is not a Finance Wallet backup file.</string>
+    <string name="backup_err_not_backup">This is not a Finance Manager backup file.</string>
     <string name="backup_err_too_new">This backup was made by a newer version of the app. Update the app, then try again.</string>
     <string name="backup_err_passphrase">Wrong passphrase, or the file is damaged. Nothing was changed.</string>
     <string name="backup_err_damaged">The file is damaged or incomplete. Nothing was changed.</string>

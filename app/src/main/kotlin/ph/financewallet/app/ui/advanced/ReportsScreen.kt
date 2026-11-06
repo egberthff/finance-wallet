@@ -71,7 +71,7 @@ fun ReportsScreen(vm: ReportsViewModel) {
     if (exportWarning) {
         ExportWarning(onConfirm = {
             exportWarning = false
-            export("finance-wallet-${range.start}-to-${range.endInclusive}.csv")
+            export("finance-manager-${range.start}-to-${range.endInclusive}.csv")
         }, onDismiss = { exportWarning = false })
     }
     state.drillDown?.let { (name, items) -> DrillDownDialog(name, items, onDismiss = vm::closeDrillDown) }

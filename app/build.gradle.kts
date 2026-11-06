@@ -1,4 +1,5 @@
 import com.android.build.api.artifact.SingleArtifact
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -10,16 +11,34 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        // Placeholder application id: must be confirmed by the owner before the first Play upload (Q-22).
-        applicationId = "ph.financewallet.app"
+        // Owner decision 2026-11-06 (Q-22): app "Finance Manager". Permanent once published; code packages keep ph.financewallet.
+        applicationId = "ph.financemanager.app"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
-        versionName = "0.1.0-dev"
+        versionName = "0.9.0-beta"
+    }
+
+    // Release signing comes from a properties file outside the repository (SEC-02): -Pfm.signing=<path> or the default
+    // path below. Without it, assembleRelease still builds, but the APK is unsigned.
+    val signingFile =
+        file(
+            providers.gradleProperty("fm.signing").orNull
+                ?: "${System.getProperty("user.home")}/dev/keys/finance-manager-signing.properties",
+        )
+    if (signingFile.isFile) {
+        val props = Properties().apply { signingFile.inputStream().use { load(it) } }
+        signingConfigs.create("release") {
+            storeFile = file(props.getProperty("storeFile"))
+            storePassword = props.getProperty("storePassword")
+            keyAlias = props.getProperty("keyAlias")
+            keyPassword = props.getProperty("keyPassword")
+        }
     }
 
     buildTypes {
         release {
+            signingConfigs.findByName("release")?.let { signingConfig = it }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
