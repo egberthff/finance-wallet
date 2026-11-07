@@ -29,6 +29,16 @@
 - **Emulator API 33, release build (R8):** smoke passed: unlock, add suggested categories, category edit dialog, category
   sheet in Add transaction; no FATAL in logcat. I1 confirmed via uiautomator.
 - **Not run yet:** H3, H4, H6, H7, H10–H12, H14–H16, I2–I4 with TalkBack, the Android 11 emulator, a physical phone.
+- **1.0.2 build (owner request, 2026-11-07):** versionCode 5; adds the Budgets tab pane (Open / Closed), "Edit allocation"
+  per category, and changing an account's type (checklist H18–H20, passed on API 33 release). Same certificate, v2-signed,
+  16 KB aligned, no network permission. Upgrade-install over 1.0.1 on API 33 kept the data (budget and allocation
+  present); unlock and Budgets tab work; no FATAL. Checks still open are the same as for 1.0.0 below.
+
+  | File (`dist/`, git-ignored) | SHA-256 |
+  |---|---|
+  | `FinanceManager-1.0.2.apk` | `710fd2ddfc90f4f5c557b107bafdafed19da3a8c0ff787cccb5eaeab771e70fb` |
+  | `FinanceManager-1.0.2.aab` | `0dc2f2145b687710eaed7ac997ffe3ced6a4b70ce5c20bc2444011baf7b400d7` |
+  | `FinanceManager-1.0.2-mapping.txt` | `1758cd6590e5ac49873d06e5b4b674b9250b9107910548bbfbe85340c33e6409` |
 - **1.0.1 build (owner request, 2026-11-07):** versionCode 4; adds open/closed budget sections, status labels,
   Reopen for a period closed early and Restore for an archived budget (checklist H17, passed on API 33 debug).
   Same certificate, v2-signed, 16 KB aligned, no network permission. Release smoke on API 33: unlock and Budgets tab,
@@ -49,7 +59,7 @@
   | `FinanceManager-1.0.0-mapping.txt` | `c59d8530424a5546eda41124bcb84df4a5b379e01b31c324e6207eec8c8f455c` |
 
   Emulator API 33: upgrade-install over the previous release build kept the data; unlock and Categories work; no FATAL.
-- **Emulator state now:** API 33 has release **1.0.1** (PIN 123456; no data). The
+- **Emulator state now:** API 33 has release **1.0.2** (PIN 123456; starter categories, account "GCash" e-wallet ₱5,000, budget "Monthly" with Food ₱500). The
   earlier rc1 release install on it was replaced (it held no data).
 
 ## 2. Not done yet (next run)
