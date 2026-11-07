@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -14,6 +15,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -27,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -46,6 +49,7 @@ import ph.financewallet.app.ui.common.IconDisc
 import ph.financewallet.app.ui.common.LabeledRow
 import ph.financewallet.app.ui.common.ListScreen
 import ph.financewallet.app.ui.common.ScreenTitle
+import ph.financewallet.app.ui.common.SectionTitle
 import ph.financewallet.app.ui.common.ShareBar
 import ph.financewallet.app.ui.common.StatusPill
 import ph.financewallet.app.ui.common.SurfaceCard
@@ -56,6 +60,7 @@ import ph.financewallet.app.ui.theme.AppIcons
 import ph.financewallet.app.ui.theme.LocalFinanceColors
 import ph.financewallet.app.ui.theme.LocalSpacing
 import ph.financewallet.app.ui.transactions.Option
+import ph.financewallet.data.budget.BudgetHeader
 import ph.financewallet.data.budget.GoalSummary
 import ph.financewallet.data.budget.Leftover
 import ph.financewallet.data.budget.LeftoverResolution
@@ -90,37 +95,80 @@ fun BudgetsScreen(
     val state by vm.state.collectAsStateWithLifecycle()
     var creating by remember { mutableStateOf(false) }
     var action by remember { mutableStateOf<BudgetAction?>(null) }
+    var closing by remember { mutableStateOf<BudgetCard?>(null) }
+    var reopening by remember { mutableStateOf<BudgetCard?>(null) }
     val scope = rememberCoroutineScope()
+    val snackbar = remember { SnackbarHostState() }
+    val res = LocalContext.current.resources
+    val show: (Int?, String) -> Unit = { error, done -> scope.launch { snackbar.showSnackbar(error?.let(res::getString) ?: done) } }
     if (state.loading) {
         LoadingState(stringResource(R.string.loading))
     } else {
-        ListScreen(stringResource(R.string.budget_add), { creating = true }) {
+        ListScreen(stringResource(R.string.budget_add), { creating = true }, snackbarHostState = snackbar) {
             item { ScreenTitle(stringResource(R.string.nav_budgets)) }
-            if (state.budgets.isEmpty()) {
-                item {
-                    EmptyCard(AppIcons.PieChart, stringResource(R.string.budget_empty_title), stringResource(R.string.budget_empty_message))
-                }
+            openBudgetItems(state, onAction = { action = it }, onClose = { closing = it }, onEdit = onEditBudget) { l, r ->
+                scope.launch { vm.resolve(l, r) }
             }
-            items(state.budgets, key = { it.id }) { card ->
-                Column(verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
-                    BudgetCardView(
-                        card,
-                        state.categoryNames,
-                        state.today,
-                        { action = it },
-                        { id -> scope.launch { vm.close(id) } },
-                        { onEditBudget(card.id) },
-                    )
-                    state.leftovers[card.id]?.let { list ->
-                        LeftoverList(list, state.categoryNames) { l, r -> scope.launch { vm.resolve(l, r) } }
-                    }
-                }
+            closedBudgetItems(state, onReopen = { reopening = it }, onEdit = onEditBudget) { b ->
+                scope.launch { show(vm.restore(b), res.getString(R.string.budget_restored, b.name)) }
             }
         }
     }
     // The app clock's today (Asia/Manila), loaded with the screen; never the device default zone.
     state.today?.let { today -> if (creating) CreateBudgetDialog(vm, state.expenseCategories, today, onDismiss = { creating = false }) }
     action?.let { a -> BudgetActionDialog(vm, state, a, newKey, onDismiss = { action = null }) }
+    closing?.let { card ->
+        CloseBudgetPeriodDialog(card.name, onCancel = { closing = null }, onClose = {
+            closing = null
+            val periodId = card.current?.period?.id ?: return@CloseBudgetPeriodDialog
+            scope.launch { show(vm.close(periodId), res.getString(R.string.budget_closed_done, card.name)) }
+        })
+    }
+    reopening?.let { card ->
+        ReopenBudgetPeriodDialog(card.name, onCancel = { reopening = null }, onReopen = {
+            reopening = null
+            scope.launch { show(vm.reopen(card), res.getString(R.string.budget_reopened, card.name)) }
+        })
+    }
+}
+
+/** "Open budgets": the budgets in use, each with its period, figures and actions. */
+private fun LazyListScope.openBudgetItems(
+    state: BudgetsState,
+    onAction: (BudgetAction) -> Unit,
+    onClose: (BudgetCard) -> Unit,
+    onEdit: (String) -> Unit,
+    onResolve: (Leftover, LeftoverResolution) -> Unit,
+) {
+    if (state.budgets.isEmpty() && state.archived.isEmpty()) {
+        item { EmptyCard(AppIcons.PieChart, stringResource(R.string.budget_empty_title), stringResource(R.string.budget_empty_message)) }
+        return
+    }
+    item { SectionTitle(stringResource(R.string.budget_section_open, state.open.size)) }
+    if (state.open.isEmpty()) {
+        item { Text(stringResource(R.string.budget_none_open), style = MaterialTheme.typography.bodyMedium) }
+    }
+    items(state.open, key = { "o" + it.id }) { card ->
+        Column(verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
+            BudgetCardView(card, state.categoryNames, state.today, onAction, { onClose(card) }, { onEdit(card.id) })
+            state.leftovers[card.id]?.let { list -> LeftoverList(list, state.categoryNames, onResolve) }
+        }
+    }
+}
+
+/** "Closed budgets": periods closed early (Reopen) and archived budgets (Restore), so a mis-tap can be undone. */
+private fun LazyListScope.closedBudgetItems(
+    state: BudgetsState,
+    onReopen: (BudgetCard) -> Unit,
+    onEdit: (String) -> Unit,
+    onRestore: (BudgetHeader) -> Unit,
+) {
+    if (state.closedPeriod.isEmpty() && state.archived.isEmpty()) return
+    item { SectionTitle(stringResource(R.string.budget_section_closed, state.closedPeriod.size + state.archived.size)) }
+    items(state.closedPeriod, key = { "c" + it.id }) { card ->
+        ClosedPeriodCard(card, onReopen = { onReopen(card) }, onEdit = { onEdit(card.id) })
+    }
+    items(state.archived, key = { "a" + it.id }) { b -> ArchivedBudgetCard(b, onRestore = { onRestore(b) }) }
 }
 
 @Composable
@@ -191,7 +239,7 @@ private fun BudgetCardView(
     names: Map<String, String>,
     today: java.time.LocalDate?,
     onAction: (BudgetAction) -> Unit,
-    onClose: (String) -> Unit,
+    onClose: () -> Unit,
     onEdit: () -> Unit,
 ) {
     val spacing = LocalSpacing.current
@@ -218,7 +266,7 @@ private fun BudgetCardView(
                 OutlinedButton(
                     onClick = { onAction(BudgetAction.SaveToGoal(o.period.id)) },
                 ) { Text(stringResource(R.string.budget_save_to_goal)) }
-                TextButton(onClick = { onClose(o.period.id) }) { Text(stringResource(R.string.budget_close_period)) }
+                TextButton(onClick = { onClose() }) { Text(stringResource(R.string.budget_close_period)) }
             }
         }
     }
@@ -239,15 +287,9 @@ private fun BudgetHeader(
                 Text(dateRange(start, end), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        if (end != null && today != null && !today.isAfter(end)) {
-            // Inclusive of today: on the last day of the period, 1 day is left.
-            val days = (ChronoUnit.DAYS.between(today, end) + 1).toInt()
-            StatusPill(
-                pluralStringResource(R.plurals.budget_days_left, days, days),
-                MaterialTheme.colorScheme.secondaryContainer,
-                MaterialTheme.colorScheme.onSecondaryContainer,
-            )
-        }
+        // Inclusive of today: on the last day of the period, 1 day is left.
+        val days = if (end != null && today != null && !today.isAfter(end)) (ChronoUnit.DAYS.between(today, end) + 1).toInt() else null
+        BudgetStatusLabel(BudgetStatus.OPEN, days)
     }
 }
 

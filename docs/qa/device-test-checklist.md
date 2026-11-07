@@ -98,6 +98,7 @@ Use made-up records only; do not enter real account numbers. For each check writ
 | H12 | Accounts: tap an account → View transactions; → Edit details: change opening balance | Filtered list; the balance changes and the opening transaction shows a revision | |
 | H13 | Budgets: New budget with Weekly / Twice a month / Every N days / One custom period | "Next periods" preview shows the dates before saving; the budget uses them | Pass (emulator API 33, 2026-11-07) |
 | H14 | Budget card → Edit budget: per-category allocation and rollover, change period, archive | Saved; period change starts after the current period; archive asks first | |
+| H17 | Budgets: Close period on an open budget, then Reopen it; archive a budget, then Restore it | Close asks first; the budget moves to "Closed budgets" with "Period closed" or "Archived"; Reopen and Restore bring it back to "Open budgets" | Pass (emulator API 33 debug, 2026-11-07) |
 | H15 | Bills: tap a bill under "Your bills and expected income" → edit, Pause, Resume, End | Changes saved; End asks first and keeps past payments | |
 | H16 | Goals: tap a goal → Edit, Linked accounts, Withdraw to a budget, Move to another goal | Withdraw and move need the confirmation tick; a linked goal can't exceed the account balance | |
 

@@ -57,6 +57,7 @@ class BudgetServicesTest {
     private lateinit var budgets: BudgetService
     private lateinit var allocations: AllocationService
     private lateinit var goals: GoalService
+    private lateinit var lifecycle: BudgetLifecycleService
 
     // 2026-11-05 11:00 in Asia/Manila.
     private val clock = MovableClock(Instant.parse("2026-11-05T03:00:00Z"))
@@ -87,6 +88,7 @@ class BudgetServicesTest {
             db = FinanceDatabase.build(ApplicationProvider.getApplicationContext(), openHelperFactory = null, inMemory = true)
             ledger = LedgerService(db, ctx)
             budgets = BudgetService(db, ctx)
+            lifecycle = BudgetLifecycleService(db, ctx)
             allocations = AllocationService(db, ctx)
             goals = GoalService(db, ctx, ledger)
             ledger.ensureSystemAccounts()
@@ -521,5 +523,99 @@ class BudgetServicesTest {
                     )
                 }.exceptionOrNull()
             assertTrue("${error?.message}", error?.message.orEmpty().contains("CK_ALLOC_CONFIRMATION"))
+        }
+
+    // ---- undo: restore an archived budget, reopen a closed period ---------------------------------------------------
+
+    @Test
+    fun `an archived budget is listed as archived and can be restored`() =
+        runBlocking<Unit> {
+            val b = monthlyBudget()
+            val v = budgets.activeBudgets().single().version
+            budgets.archiveBudget(b, v).getOrThrow()
+            assertEquals(emptyList<String>(), budgets.activeBudgets().map { it.id })
+            val archived = lifecycle.archivedBudgets().single()
+            assertEquals(b, archived.id)
+
+            lifecycle.unarchiveBudget(b, archived.version).getOrThrow()
+            assertEquals(listOf(b), budgets.activeBudgets().map { it.id })
+            assertEquals(emptyList<String>(), lifecycle.archivedBudgets().map { it.id })
+            assertEquals("NOT_ARCHIVED", lifecycle.unarchiveBudget(b, budgets.activeBudgets().single().version).errorOrNull()?.code)
+        }
+
+    @Test
+    fun `a period closed by mistake reopens, its carry and sweep are reversed, and it can be closed again`() =
+        runBlocking<Unit> {
+            val laptop = goal()
+            val specs =
+                listOf(
+                    BudgetCategorySpec(food, rollover = RolloverPolicy.CARRY),
+                    BudgetCategorySpec(bills, rollover = RolloverPolicy.SWEEP_TO_GOAL, sweepGoalId = laptop),
+                )
+            val b = monthlyBudget(specs = specs)
+            income(3_000_000)
+            val p = period(b)
+            allocations.allocate(p.id, food, p(500_000), key()).getOrThrow()
+            allocations.allocate(p.id, bills, p(900_000), key()).getOrThrow()
+            spend(food, 300_000)
+            spend(bills, 850_000)
+
+            budgets.closePeriod(p.id).getOrThrow() // mis-tap: the period runs to 4 Dec
+            val next = period(b, LocalDate.of(2026, 12, 5))
+
+            suspend fun nextFood() =
+                budgets
+                    .overview(next.id)
+                    .categories
+                    .single { it.categoryId == food }
+                    .allocated
+            assertEquals(p(200_000), nextFood())
+            assertEquals(p(50_000), goals.summary(laptop).allocated)
+
+            assertEquals(2, lifecycle.reopenPeriod(p.id).getOrThrow())
+            assertTrue(!budgets.periods(b).first().closed)
+            assertEquals(p(0), nextFood())
+            assertEquals(p(0), goals.summary(laptop).allocated)
+            assertEquals(
+                p(200_000),
+                budgets
+                    .overview(p.id)
+                    .categories
+                    .single { it.categoryId == food }
+                    .remaining,
+            )
+            allocations.allocate(p.id, food, p(1_000), key()).getOrThrow() // open again: allocations work
+
+            // Closing again works (the reversed moves' keys were freed) and moves the money once more.
+            val again = budgets.closePeriod(p.id).getOrThrow()
+            assertTrue(!again.alreadyClosed)
+            assertEquals(p(201_000), nextFood())
+            assertEquals(p(50_000), goals.summary(laptop).allocated)
+            assertEquals(
+                listOf("budget.period_reopen"),
+                db.accountDao().auditFor(p.id).map { it.kind },
+            )
+        }
+
+    @Test
+    fun `reopening is refused once the moved money was used, or after the period ended`() =
+        runBlocking<Unit> {
+            val laptop = goal()
+            val b = monthlyBudget(specs = listOf(BudgetCategorySpec(bills, rollover = RolloverPolicy.SWEEP_TO_GOAL, sweepGoalId = laptop)))
+            income(3_000_000)
+            val p = period(b)
+            allocations.allocate(p.id, bills, p(900_000), key()).getOrThrow()
+            spend(bills, 850_000)
+            budgets.closePeriod(p.id).getOrThrow() // ₱500 swept to the goal
+            val next = period(b, LocalDate.of(2026, 12, 5))
+            goals.withdraw(laptop, next.id, p(30_000), confirmed = true, key()).getOrThrow() // ₱300 of it moved on
+
+            assertEquals("MOVED_MONEY_USED", lifecycle.reopenPeriod(p.id).errorOrNull()?.code)
+            assertTrue(budgets.periods(b).first().closed)
+            assertEquals(p(20_000), goals.summary(laptop).allocated)
+
+            today(LocalDate.of(2026, 12, 6)) // the period (5 Nov – 4 Dec) has ended
+            assertEquals("PERIOD_ALREADY_ENDED", lifecycle.reopenPeriod(p.id).errorOrNull()?.code)
+            assertEquals("PERIOD_NOT_CLOSED", lifecycle.reopenPeriod(next.id).errorOrNull()?.code)
         }
 }

@@ -17,6 +17,7 @@ import ph.financewallet.app.ui.common.reloadOn
 import ph.financewallet.app.ui.transactions.Option
 import ph.financewallet.data.account.CategoryRow
 import ph.financewallet.data.budget.BudgetCategorySpec
+import ph.financewallet.data.budget.BudgetHeader
 import ph.financewallet.data.budget.BudgetSettings
 import ph.financewallet.data.budget.GoalDetails
 import ph.financewallet.data.budget.GoalStatus
@@ -53,9 +54,17 @@ data class BudgetsState(
     val goals: List<GoalSummary> = emptyList(),
     /** Leftovers of closed periods waiting for a decision (MANUAL rollover policy), per budget id. */
     val leftovers: Map<String, List<Leftover>> = emptyMap(),
+    /** Archived budgets: listed under "Closed budgets" with Restore. */
+    val archived: List<BudgetHeader> = emptyList(),
     /** For "N days left" in the current period; from the app clock (Asia/Manila). */
     val today: java.time.LocalDate? = null,
-)
+) {
+    /** Budgets whose current period is open (or not started yet): the ones in use. */
+    val open: List<BudgetCard> get() = budgets.filter { it.current?.period?.closed != true }
+
+    /** Budgets whose current period was closed before it ended; they can be reopened while the period lasts. */
+    val closedPeriod: List<BudgetCard> get() = budgets.filter { it.current?.period?.closed == true }
+}
 
 /**
  * Budgets tab (UC-16..19). Each budget is shown on its own; totals of different budgets are never added (BUD-04).
@@ -91,6 +100,7 @@ class BudgetsViewModel(
             categoryRows = categories,
             goals = s.goals.goals().filter { it.status.name != "ARCHIVED" },
             leftovers = cards.associate { it.id to s.budgets.leftovers(it.id) }.filterValues { it.isNotEmpty() },
+            archived = s.budgetLifecycle.archivedBudgets(),
             today = s.ctx.today(),
         )
     }
@@ -188,6 +198,25 @@ class BudgetsViewModel(
         amountText: String,
         key: String,
     ): Int? = if (goalId == null) R.string.err_goal_required else saveToGoal(periodId, goalId, amountText, key)
+
+    /**
+     * Undo of "Close period" (a mis-tap): the period opens again and the money closing moved (carried or sent to a
+     * goal) moves back. Refused once that money was used, or after the period ended.
+     */
+    suspend fun reopen(card: BudgetCard): Int? {
+        val periodId = card.current?.period?.id ?: return R.string.err_not_found
+        return s.budgetLifecycle
+            .reopenPeriod(periodId)
+            .errorRes()
+            .also { if (it == null) mutable.value = load() }
+    }
+
+    /** Undo of "Archive budget": the budget is back with its settings and history. */
+    suspend fun restore(budget: BudgetHeader): Int? =
+        s.budgetLifecycle
+            .unarchiveBudget(budget.id, budget.version)
+            .errorRes()
+            .also { if (it == null) mutable.value = load() }
 
     suspend fun close(periodId: String): Int? =
         s.budgets

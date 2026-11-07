@@ -67,6 +67,11 @@ Use cases are the **only** code allowed to write to the database (06-architectur
   *Decision 2026-11-07:* "Add suggested categories" can be run at any time and adds only the starter categories whose name
   is missing among their siblings (live or archived), so it never duplicates or renames the user's categories; a renamed
   starter category (e.g. "Food" → "Meals") is treated as missing.
+- **UC-16/19 undo (2026-11-07):** the Budgets tab lists open budgets and closed ones apart, each with a status label
+  (Open · N days left, Period closed, Archived). An archived budget can be restored as it was. A period closed before its
+  end ("Close period" asks first) can be reopened while it lasts: the rollover, sweep and leftover moves written for it
+  are soft-deleted (kept, key freed so it can be closed again). Reopening is refused when the period has ended, a later
+  period is closed, or money a move added to a category or goal has since been used (`MOVED_MONEY_USED`).
 
 Read-side queries (balances, reports, dashboard) are **query services**, not use cases. They are read-only and run in `:data`,
 with calculations in `:domain` (`ReportCalculator`, `BudgetCalculator`, `NetWorthCalculator`).

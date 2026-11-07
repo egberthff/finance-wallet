@@ -33,6 +33,9 @@ interface BudgetDao {
     @Query("SELECT * FROM budget WHERE id = :id")
     suspend fun budget(id: String): BudgetEntity?
 
+    @Query("SELECT * FROM budget WHERE archived_at IS NOT NULL ORDER BY archived_at DESC, name")
+    suspend fun archivedBudgets(): List<BudgetEntity>
+
     @Query("SELECT * FROM budget WHERE archived_at IS NULL ORDER BY name")
     suspend fun activeBudgets(): List<BudgetEntity>
 
@@ -116,6 +119,17 @@ interface BudgetDao {
 
     @Query("SELECT * FROM allocation_group WHERE id = :id")
     suspend fun group(id: String): AllocationGroupEntity?
+
+    @Update
+    suspend fun updateGroup(row: AllocationGroupEntity)
+
+    /** Live groups whose idempotency key starts with [keyPrefix] (e.g. a period's rollover and leftover moves). */
+    @Query(
+        """SELECT * FROM allocation_group
+           WHERE deleted_at IS NULL AND substr(idempotency_key, 1, length(:keyPrefix)) = :keyPrefix
+           ORDER BY created_at, id""",
+    )
+    suspend fun liveGroupsWithKeyPrefix(keyPrefix: String): List<AllocationGroupEntity>
 
     @Query("SELECT * FROM allocation_entry WHERE group_id = :groupId ORDER BY id")
     suspend fun allocationEntries(groupId: String): List<AllocationEntryEntity>

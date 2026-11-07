@@ -13,6 +13,7 @@ import ph.financewallet.data.advanced.RecurringService
 import ph.financewallet.data.advanced.ReportService
 import ph.financewallet.data.backup.BackupService
 import ph.financewallet.data.budget.AllocationService
+import ph.financewallet.data.budget.BudgetLifecycleService
 import ph.financewallet.data.budget.BudgetService
 import ph.financewallet.data.budget.GoalService
 import ph.financewallet.data.db.FinanceDatabase
@@ -42,6 +43,7 @@ class AppServices(
     val accounts = AccountService(db, ctx, ledger)
     val categories = CategoryService(db, ctx)
     val budgets = BudgetService(db, ctx)
+    val budgetLifecycle = BudgetLifecycleService(db, ctx)
     val allocations = AllocationService(db, ctx)
     val goals = GoalService(db, ctx, ledger)
     val transactions = TransactionQueries(db)
