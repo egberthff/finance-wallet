@@ -11,6 +11,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import ph.financewallet.app.AppServices
+import ph.financewallet.app.R
 import ph.financewallet.app.ui.budgets.BudgetsViewModel
 import ph.financewallet.app.ui.budgets.PeriodChoice
 import ph.financewallet.app.ui.budgets.PeriodForm
@@ -67,6 +68,65 @@ class BudgetSectionsViewModelTest {
             state = vm.load()
             assertEquals(listOf("Commute", "Monthly"), state.open.map { it.name })
             assertTrue(state.closedPeriod.isEmpty())
+        }
+
+    @Test
+    fun `a category allocation is edited up, down and to zero, moving only the difference to or from Available`() =
+        runBlocking<Unit> {
+            suspend fun monthly() =
+                checkNotNull(
+                    vm
+                        .load()
+                        .budgets
+                        .single { it.name == "Monthly" }
+                        .current,
+                )
+            val period = monthly().period.id
+            val food = monthly().categories.single().categoryId
+            assertNull(vm.fund(period, "10,000", "fund"))
+            assertNull(vm.allocate(period, food, "3,000", "alloc"))
+            assertEquals(
+                1_000_000L to 300_000L,
+                monthly().funding.minor to
+                    monthly()
+                        .categories
+                        .single()
+                        .allocated.minor,
+            )
+
+            assertNull(vm.setAllocation(period, food, "5,000", "edit1"))
+            assertEquals(
+                500_000L to 500_000L,
+                monthly().availableToBudget.minor to
+                    monthly()
+                        .categories
+                        .single()
+                        .allocated.minor,
+            )
+
+            assertNull(vm.setAllocation(period, food, "1,000.50", "edit2"))
+            assertEquals(
+                899_950L to 100_050L,
+                monthly().availableToBudget.minor to
+                    monthly()
+                        .categories
+                        .single()
+                        .allocated.minor,
+            )
+
+            assertNull(vm.setAllocation(period, food, "0", "edit3"))
+            assertEquals(
+                1_000_000L to 0L,
+                monthly().availableToBudget.minor to
+                    monthly()
+                        .categories
+                        .single()
+                        .allocated.minor,
+            )
+
+            assertNull(vm.setAllocation(period, food, "0", "edit4"))
+            assertEquals(R.string.err_amount_negative, vm.setAllocation(period, food, "-100", "edit5"))
+            assertEquals(1_000_000L, monthly().funding.minor)
         }
 
     @Test

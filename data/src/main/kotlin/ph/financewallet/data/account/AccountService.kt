@@ -9,6 +9,7 @@ import ph.financewallet.data.ledger.WriteContext
 import ph.financewallet.domain.common.DomainResult
 import ph.financewallet.domain.common.ValidationScope
 import ph.financewallet.domain.ledger.AccountClass
+import ph.financewallet.domain.ledger.FinancialAccountType
 import ph.financewallet.domain.money.CurrencyCode
 import ph.financewallet.domain.money.Money
 import java.time.LocalDate
@@ -26,6 +27,12 @@ data class AccountEdit(
     val currency: CurrencyCode,
     val openingDate: LocalDate,
     val openingAmount: Money,
+    /**
+     * New account type, or null to keep it. Within the same class (held money: cash, bank, e-wallet, savings, other;
+     * owed money: credit card, loan, borrowed) it can always change, except away from savings once savings transfers
+     * exist. A change of class is allowed only while the account has nothing but its opening balance and no links.
+     */
+    val type: FinancialAccountType? = null,
 )
 
 /** An account's editable values with the version to send back, and whether its currency is locked (UC-02). */
@@ -89,6 +96,7 @@ class AccountService(
                 currency = currency,
                 openingDate = LocalDate.parse(opening?.txnDate ?: financial.openingDate),
                 openingAmount = Money(amount, currency),
+                type = FinancialAccountType.valueOf(financial.type),
             ),
             version = financial.version,
             currencyLocked = dao.nonOpeningEntryCount(accountId) > 0,
@@ -113,12 +121,15 @@ class AccountService(
             edit.creditLimit?.let { ensure(it.currency == edit.currency && !it.isNegative, "creditLimit", "AMOUNT_NEGATIVE") }
             val currencyChanged = edit.currency.code != account.currency
             if (currencyChanged) ensure(dao.nonOpeningEntryCount(accountId) == 0, "currency", "CURRENCY_LOCKED")
+            val newType = edit.type ?: FinancialAccountType.valueOf(financial.type)
+            val newClass = checkTypeChange(accountId, account.accountClass, financial.type, newType)
 
             val now = ctx.nowMillis()
             dao.updateLedgerAccount(
                 account.copy(
                     name = edit.name.trim(),
                     currency = edit.currency.code,
+                    accountClass = newClass.name,
                     version = account.version + 1,
                     updatedAt = now,
                     updatedByDevice = ctx.deviceId,
@@ -127,11 +138,12 @@ class AccountService(
             )
             dao.updateFinancialAccount(
                 financial.copy(
+                    type = newType.name,
                     institution = edit.institution?.trim()?.ifEmpty { null },
                     accountNumberLast4 = edit.accountNumberLast4,
                     openingDate = edit.openingDate.toString(),
                     includeInNetWorth = edit.includeInNetWorth,
-                    spendable = edit.spendable && account.accountClass == AccountClass.ASSET.name,
+                    spendable = edit.spendable && newClass == AccountClass.ASSET,
                     creditLimitMinor = edit.creditLimit?.minor,
                     reconcileReminderDays = edit.reconcileReminderDays,
                     version = financial.version + 1,
@@ -140,8 +152,17 @@ class AccountService(
                     hlc = ctx.nextHlc(),
                 ),
             )
-            updateOpening(accountId, AccountClass.valueOf(account.accountClass), edit)
-            audit("ACCOUNT_EDIT", accountId, mapOf("name" to edit.name.trim(), "currencyChanged" to currencyChanged.toString()))
+            // The opening amount is kept as entered; its sign follows the (possibly new) class.
+            updateOpening(accountId, newClass, edit)
+            audit(
+                "ACCOUNT_EDIT",
+                accountId,
+                mapOf(
+                    "name" to edit.name.trim(),
+                    "currencyChanged" to currencyChanged.toString(),
+                    "type" to "${financial.type}->${newType.name}",
+                ),
+            )
         }
 
     /**
@@ -260,6 +281,31 @@ class AccountService(
     }
 
     // ---- internals ----------------------------------------------------------------------------------------------
+
+    /**
+     * Checks a change of account type and returns the account's class afterwards. Same class: allowed, except leaving
+     * SAVINGS while savings transfers use the account (`SAVINGS_TYPE_LOCKED`; those transfers require a savings account).
+     * New class: allowed only while the account has no transactions besides its opening balance, no budget, goal or
+     * reconciliation links and no debt record (`TYPE_CLASS_LOCKED`), because the class decides what every entry means.
+     */
+    private suspend fun ValidationScope.checkTypeChange(
+        accountId: String,
+        currentClass: String,
+        currentType: String,
+        newType: FinancialAccountType,
+    ): AccountClass {
+        if (newType.name == currentType) return AccountClass.valueOf(currentClass)
+        if (currentType ==
+            FinancialAccountType.SAVINGS.name
+        ) {
+            ensure(dao.savingsTransferCount(accountId) == 0, "type", "SAVINGS_TYPE_LOCKED")
+        }
+        if (newType.accountClass.name != currentClass) {
+            val clean = dao.nonOpeningEntryCount(accountId) == 0 && dao.accountReferences(accountId) == 0 && dao.debtCount(accountId) == 0
+            ensure(clean, "type", "TYPE_CLASS_LOCKED")
+        }
+        return newType.accountClass
+    }
 
     private suspend fun ValidationScope.load(accountId: String) =
         (ledgerDao.ledgerAccount(accountId) ?: notFound("account", accountId)) to

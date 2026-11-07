@@ -106,6 +106,17 @@ interface AccountDao {
     )
     suspend fun accountReferences(id: String): Int
 
+    /** Live savings transfers into or out of [accountId] (they require a savings account). */
+    @Query(
+        """SELECT COUNT(*) FROM entry e JOIN txn t ON t.id = e.txn_id
+           WHERE e.ledger_account_id = :accountId AND t.deleted_at IS NULL
+             AND t.type IN ('SAVINGS_CONTRIBUTION', 'SAVINGS_WITHDRAWAL')""",
+    )
+    suspend fun savingsTransferCount(accountId: String): Int
+
+    @Query("SELECT COUNT(*) FROM debt WHERE ledger_account_id = :accountId")
+    suspend fun debtCount(accountId: String): Int
+
     // ---- categories ---------------------------------------------------------------------------------------------
 
     @Query(

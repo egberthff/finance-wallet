@@ -443,4 +443,51 @@ class AccountAndCategoryTest {
             ledger.record(TxnHeader(nov5, key())) { t, _ -> t.expense(a, listOf(Split(food, p(1)))) }.getOrThrow()
             assertEquals(true, checkNotNull(accounts.editState(a)).currencyLocked)
         }
+
+    // ---- account type change ----------------------------------------------------------------------------------------
+
+    @Test
+    fun `the type changes freely within the same class, history and balance unchanged`() =
+        runBlocking<Unit> {
+            val a = account(500_000) // e-wallet
+            val food = categories.create("Food", AccountClass.EXPENSE).getOrThrow()
+            ledger.record(TxnHeader(nov5, key())) { t, _ -> t.expense(a, listOf(Split(food, p(20_000)))) }.getOrThrow()
+
+            accounts.edit(a, version(a), edit(500_000).copy(type = FinancialAccountType.BANK)).getOrThrow()
+            val row = accounts.accounts().single { it.id == a }
+            assertEquals("BANK" to "ASSET", row.type to row.accountClass)
+            assertEquals(p(480_000), ledger.balance(a, far))
+            accounts.edit(a, version(a), edit(500_000).copy(type = FinancialAccountType.CASH)).getOrThrow()
+            assertEquals("CASH", accounts.accounts().single { it.id == a }.type)
+        }
+
+    @Test
+    fun `a new account can move to the owed class, and its opening amount becomes the amount owed`() =
+        runBlocking<Unit> {
+            val a = account(500_000) // e-wallet holding ₱5,000, nothing else yet
+            accounts.edit(a, version(a), edit(500_000).copy(type = FinancialAccountType.CREDIT_CARD)).getOrThrow()
+            val row = accounts.accounts().single { it.id == a }
+            assertEquals("CREDIT_CARD" to "LIABILITY", row.type to row.accountClass)
+            assertEquals(p(-500_000), ledger.balance(a, far)) // owed
+            assertEquals(p(500_000), checkNotNull(accounts.editState(a)).edit.openingAmount)
+            // And back again.
+            accounts.edit(a, version(a), edit(500_000).copy(type = FinancialAccountType.EWALLET)).getOrThrow()
+            assertEquals(p(500_000), ledger.balance(a, far))
+        }
+
+    @Test
+    fun `the class is locked once the account has history, and savings keeps its type while transfers use it`() =
+        runBlocking<Unit> {
+            val a = account(500_000)
+            val food = categories.create("Food", AccountClass.EXPENSE).getOrThrow()
+            ledger.record(TxnHeader(nov5, key())) { t, _ -> t.expense(a, listOf(Split(food, p(1_000)))) }.getOrThrow()
+            val toCard = accounts.edit(a, version(a), edit(500_000).copy(type = FinancialAccountType.CREDIT_CARD))
+            assertEquals("TYPE_CLASS_LOCKED", toCard.errorOrNull()?.code)
+            assertEquals("EWALLET", accounts.accounts().single { it.id == a }.type)
+
+            val savings = account(0, FinancialAccountType.SAVINGS)
+            ledger.record(TxnHeader(nov5, key())) { t, _ -> t.savingsContribution(a, savings, p(10_000)) }.getOrThrow()
+            val toBank = accounts.edit(savings, version(savings), edit(0).copy(type = FinancialAccountType.BANK))
+            assertEquals("SAVINGS_TYPE_LOCKED", toBank.errorOrNull()?.code)
+        }
 }

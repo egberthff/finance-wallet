@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -143,4 +145,33 @@ fun ReopenBudgetPeriodDialog(
         confirmButton = { TextButton(onClick = onReopen) { Text(stringResource(R.string.budget_reopen)) } },
         dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) } },
     )
+}
+
+/** The two panes of the Budgets tab: budgets in use, and closed periods plus archived budgets. */
+enum class BudgetTab { OPEN, CLOSED }
+
+/** Tab pane: "Open" on the left, "Closed" (closed early or archived) on the right, each with its count. */
+@Composable
+fun BudgetTabs(
+    selected: BudgetTab,
+    openCount: Int,
+    closedCount: Int,
+    onSelect: (BudgetTab) -> Unit,
+) {
+    PrimaryTabRow(selectedTabIndex = selected.ordinal) {
+        BudgetTab.entries.forEach { t ->
+            Tab(
+                selected = t == selected,
+                onClick = { onSelect(t) },
+                text = {
+                    Text(
+                        when (t) {
+                            BudgetTab.OPEN -> stringResource(R.string.budget_tab_open, openCount)
+                            BudgetTab.CLOSED -> stringResource(R.string.budget_tab_closed, closedCount)
+                        },
+                    )
+                },
+            )
+        }
+    }
 }

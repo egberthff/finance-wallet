@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -44,6 +46,7 @@ import ph.financewallet.app.ui.common.AmountField
 import ph.financewallet.app.ui.common.AmountText
 import ph.financewallet.app.ui.common.ChoiceChips
 import ph.financewallet.app.ui.common.ErrorLine
+import ph.financewallet.app.ui.common.FieldLabel
 import ph.financewallet.app.ui.common.FigureCard
 import ph.financewallet.app.ui.common.IconDisc
 import ph.financewallet.app.ui.common.LabeledRow
@@ -312,6 +315,7 @@ private fun EditAccountDialog(
     var name by rememberSaveable { mutableStateOf(a.row.name) }
     var institution by rememberSaveable { mutableStateOf(a.row.institution.orEmpty()) }
     var opening by rememberSaveable { mutableStateOf<String?>(null) }
+    var type by rememberSaveable { mutableStateOf(FinancialAccountType.valueOf(a.row.type)) }
     var error by remember { mutableStateOf<Int?>(null) }
     androidx.compose.runtime.LaunchedEffect(a.row.id) {
         state = vm.editState(a.row.id)
@@ -322,7 +326,10 @@ private fun EditAccountDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.accounts_edit)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
+            Column(
+                Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm),
+            ) {
                 OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.field_name)) }, singleLine = true)
                 OutlinedTextField(
                     institution,
@@ -330,7 +337,8 @@ private fun EditAccountDialog(
                     label = { Text(stringResource(R.string.field_institution)) },
                     singleLine = true,
                 )
-                AmountField(opening.orEmpty(), { opening = it }, stringResource(openingLabel(a.row.accountClass)), null)
+                AccountTypeField(type, a.row.accountClass) { type = it }
+                AmountField(opening.orEmpty(), { opening = it }, stringResource(openingLabel(type.accountClass.name)), null)
                 Text(stringResource(R.string.accounts_opening_revision), style = MaterialTheme.typography.bodySmall)
                 Text(
                     stringResource(R.string.accounts_currency_locked, loaded.edit.currency.code),
@@ -343,13 +351,36 @@ private fun EditAccountDialog(
         confirmButton = {
             TextButton(onClick = {
                 scope.launch {
-                    error = vm.edit(a.row.id, loaded, name, institution, opening.orEmpty())
+                    error = vm.edit(a.row.id, loaded, name, institution, opening.orEmpty(), type)
                     if (error == null) onDismiss()
                 }
             }) { Text(stringResource(R.string.action_save)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
+}
+
+/**
+ * The account type, changeable after creation (e.g. e-wallet to bank). Moving between money you have and money you owe
+ * is explained, because it is only possible while the account has nothing but its opening balance.
+ */
+@Composable
+private fun AccountTypeField(
+    type: FinancialAccountType,
+    currentClass: String,
+    onChange: (FinancialAccountType) -> Unit,
+) {
+    FieldLabel(stringResource(R.string.accounts_type))
+    ChoiceChips(FinancialAccountType.entries.toList(), type, { stringResource(typeLabel(it)) }, onChange)
+    if (type.accountClass.name != currentClass) {
+        Text(
+            stringResource(
+                if (type.accountClass == AccountClass.LIABILITY) R.string.accounts_type_to_owed else R.string.accounts_type_to_held,
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.tertiary,
+        )
+    }
 }
 
 private fun openingLabel(accountClass: String): Int =

@@ -53,6 +53,11 @@ Use cases are the **only** code allowed to write to the database (06-architectur
   account returns `ACCOUNT_HAS_HISTORY` and the UI offers archive (UC-03), which hides it and blocks new transactions.
 - **UC-02:** the opening balance is edited through its SYSTEM transaction (create / edit / soft-delete, each with a revision).
   Currency can change only while the opening balance is the account's only history (`CURRENCY_LOCKED` otherwise).
+  The type can change (owner request 2026-11-07), e.g. e-wallet ↔ bank: within the same class (have: cash, bank, e-wallet,
+  savings, other; owe: credit card, loan, borrowed) always, keeping history and balance, except that an account used by
+  savings transfers stays SAVINGS (`SAVINGS_TYPE_LOCKED`). Moving between have and owe changes the ledger class, so it is
+  allowed only while the opening balance is the only history and nothing links to it (`TYPE_CLASS_LOCKED`); the opening
+  amount keeps its size and takes the new class's sign.
 - **UC-03:** archiving an account with a non-zero balance requires an explicit acknowledgement (`BALANCE_NOT_ZERO`).
 - **UC-09:** an edit may keep an archived account or category that the transaction already uses (owner decision 2026-11-07,
   docs/10-domain-model.md §3.6); the entry form shows it labelled "(archived)". Archived ones cannot be newly chosen.
@@ -67,11 +72,16 @@ Use cases are the **only** code allowed to write to the database (06-architectur
   *Decision 2026-11-07:* "Add suggested categories" can be run at any time and adds only the starter categories whose name
   is missing among their siblings (live or archived), so it never duplicates or renames the user's categories; a renamed
   starter category (e.g. "Food" → "Meals") is treated as missing.
-- **UC-16/19 undo (2026-11-07):** the Budgets tab lists open budgets and closed ones apart, each with a status label
+- **UC-16/19 undo (2026-11-07):** the Budgets tab is a tab pane: "Open" (left) and "Closed" (right: periods closed early
+  and archived budgets), each budget with a status label
   (Open · N days left, Period closed, Archived). An archived budget can be restored as it was. A period closed before its
   end ("Close period" asks first) can be reopened while it lasts: the rollover, sweep and leftover moves written for it
   are soft-deleted (kept, key freed so it can be closed again). Reopening is refused when the period has ended, a later
   period is closed, or money a move added to a category or goal has since been used (`MOVED_MONEY_USED`).
+- **UC-18 edit allocation (2026-11-07):** each category line of an open budget has "Edit allocation", prefilled with the
+  current figure. Only the difference moves: raising takes it from Available (Allocate), lowering returns it
+  (Reallocate category → pool, reason "allocation edited"); zero is allowed, below zero is not. The current figure is
+  read again at save time, never taken from the screen.
 
 Read-side queries (balances, reports, dashboard) are **query services**, not use cases. They are read-only and run in `:data`,
 with calculations in `:domain` (`ReportCalculator`, `BudgetCalculator`, `NetWorthCalculator`).

@@ -54,7 +54,7 @@ data class BudgetsState(
     val goals: List<GoalSummary> = emptyList(),
     /** Leftovers of closed periods waiting for a decision (MANUAL rollover policy), per budget id. */
     val leftovers: Map<String, List<Leftover>> = emptyMap(),
-    /** Archived budgets: listed under "Closed budgets" with Restore. */
+    /** Archived budgets: listed in the "Closed" tab with Restore. */
     val archived: List<BudgetHeader> = emptyList(),
     /** For "N days left" in the current period; from the app clock (Asia/Manila). */
     val today: java.time.LocalDate? = null,
@@ -166,6 +166,46 @@ class BudgetsViewModel(
         key: String,
     ): Int? = withAmount(amountText) { s.allocations.allocate(periodId, categoryId, it, key) }
 
+    /**
+     * Edits a category's allocation to [targetText] (UC-17). Only the difference moves: more is taken from "available",
+     * less goes back to it, recorded as an allocation move (never an expense). The current figure is read fresh, so a
+     * stale screen cannot move the wrong amount; zero is allowed, below zero is not.
+     */
+    suspend fun setAllocation(
+        periodId: String,
+        categoryId: String,
+        targetText: String,
+        key: String,
+    ): Int? =
+        withAmount(targetText) { target ->
+            val current =
+                s.budgets
+                    .overview(periodId)
+                    .categories
+                    .firstOrNull { it.categoryId == categoryId }
+                    ?.allocated ?: Money.zero(target.currency)
+            val delta = target - current
+            when {
+                delta.isZero -> {
+                    DomainResult.Ok(Unit)
+                }
+
+                delta.isPositive -> {
+                    s.allocations.allocate(periodId, categoryId, delta, key)
+                }
+
+                else -> {
+                    s.allocations.reallocate(
+                        Bucket.Category(periodId, categoryId),
+                        Bucket.Unallocated(periodId),
+                        -delta,
+                        key,
+                        reason = EDIT_REASON,
+                    )
+                }
+            }
+        }
+
     suspend fun fund(
         periodId: String,
         amountText: String,
@@ -235,6 +275,9 @@ class BudgetsViewModel(
     }
 
     companion object {
+        /** Reason recorded on the move when an allocation is lowered by editing it. */
+        const val EDIT_REASON = "allocation edited"
+
         /** The most recent day-[day] start on or before [today] (clamped to month length). */
         fun currentPeriodStart(
             day: Int,

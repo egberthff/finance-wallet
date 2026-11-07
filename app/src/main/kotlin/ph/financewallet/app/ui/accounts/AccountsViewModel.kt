@@ -120,7 +120,7 @@ class AccountsViewModel(
     suspend fun editState(id: String): AccountEditState? = s.accounts.editState(id)
 
     /**
-     * UC-02 from the account dialog: name, institution and opening balance. The currency never changes here. A changed
+     * UC-02 from the account dialog: name, type, institution and opening balance. The currency never changes here. A changed
      * opening balance edits the account's opening transaction, which keeps a revision (TXN-06).
      */
     suspend fun edit(
@@ -129,10 +129,11 @@ class AccountsViewModel(
         name: String,
         institution: String,
         openingText: String,
+        type: FinancialAccountType = state.edit.type ?: FinancialAccountType.OTHER,
     ): Int? {
         val (opening, amountError) = parseAmount(openingText.ifBlank { "0" }, state.edit.currency)
         if (opening == null) return amountError ?: R.string.err_generic
-        val edit = state.edit.copy(name = name, institution = institution.trim().ifEmpty { null }, openingAmount = opening)
+        val edit = state.edit.copy(name = name, institution = institution.trim().ifEmpty { null }, openingAmount = opening, type = type)
         return s.accounts
             .edit(id, state.version, edit)
             .errorRes()

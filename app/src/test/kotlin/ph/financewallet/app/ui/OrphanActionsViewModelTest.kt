@@ -90,6 +90,29 @@ class OrphanActionsViewModelTest {
         }
 
     @Test
+    fun `account type changes from e-wallet to bank and, with only an opening balance, to credit card and back`() =
+        runBlocking<Unit> {
+            val vm = AccountsViewModel(s)
+
+            suspend fun row() = s.accounts.accounts().single { it.id == gcash }
+            var state = checkNotNull(vm.editState(gcash))
+            assertEquals(FinancialAccountType.EWALLET, state.edit.type)
+            assertNull(vm.edit(gcash, state, "GCash", "", "5,000.00", FinancialAccountType.BANK))
+            assertEquals("BANK" to "ASSET", row().type to row().accountClass)
+            assertEquals(p(500_000), s.ledger.balance(gcash, today))
+
+            state = checkNotNull(vm.editState(gcash))
+            assertNull(vm.edit(gcash, state, "GCash", "", "5,000.00", FinancialAccountType.CREDIT_CARD))
+            assertEquals("CREDIT_CARD" to "LIABILITY", row().type to row().accountClass)
+            assertEquals(p(-500_000), s.ledger.balance(gcash, today))
+
+            state = checkNotNull(vm.editState(gcash))
+            assertNull(vm.edit(gcash, state, "GCash", "", "5,000.00", FinancialAccountType.EWALLET))
+            assertEquals("EWALLET" to "ASSET", row().type to row().accountClass)
+            assertEquals(p(500_000), s.ledger.balance(gcash, today))
+        }
+
+    @Test
     fun `a weekly budget is created, its category settings edited, its rule changed, then archived`() =
         runBlocking<Unit> {
             val budgets = BudgetsViewModel(s)

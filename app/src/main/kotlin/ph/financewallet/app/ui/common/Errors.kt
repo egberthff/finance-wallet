@@ -61,6 +61,8 @@ private val ERROR_TEXT: Map<String, Int> =
         "LATER_PERIOD_CLOSED" to R.string.err_later_period_closed,
         "MOVED_MONEY_USED" to R.string.err_moved_money_used,
         "PERIOD_NOT_CLOSED" to R.string.err_period_not_closed,
+        "TYPE_CLASS_LOCKED" to R.string.err_type_class_locked,
+        "SAVINGS_TYPE_LOCKED" to R.string.err_savings_type_locked,
         "REFUND_EXCEEDS_ORIGINAL" to R.string.err_refund_exceeds,
         "REFUND_CATEGORY_REQUIRED" to R.string.err_refund_category_required,
         "REFUND_CATEGORY_NOT_IN_ORIGINAL" to R.string.err_refund_category_required,

@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,7 +50,6 @@ import ph.financewallet.app.ui.common.IconDisc
 import ph.financewallet.app.ui.common.LabeledRow
 import ph.financewallet.app.ui.common.ListScreen
 import ph.financewallet.app.ui.common.ScreenTitle
-import ph.financewallet.app.ui.common.SectionTitle
 import ph.financewallet.app.ui.common.ShareBar
 import ph.financewallet.app.ui.common.StatusPill
 import ph.financewallet.app.ui.common.SurfaceCard
@@ -67,6 +67,7 @@ import ph.financewallet.data.budget.LeftoverResolution
 import ph.financewallet.domain.allocation.BudgetMath
 import ph.financewallet.domain.allocation.IncomeMode
 import ph.financewallet.domain.money.Money
+import ph.financewallet.domain.money.MoneyFormatter
 import java.time.temporal.ChronoUnit
 
 /** Which action dialog is open on a budget card. */
@@ -84,6 +85,13 @@ private sealed interface BudgetAction {
     data class SaveToGoal(
         override val periodId: String,
     ) : BudgetAction
+
+    /** Change one category's allocation to a new figure (prefilled with the current one). */
+    data class EditAllocation(
+        override val periodId: String,
+        val categoryId: String,
+        val current: Money,
+    ) : BudgetAction
 }
 
 @Composable
@@ -97,6 +105,7 @@ fun BudgetsScreen(
     var action by remember { mutableStateOf<BudgetAction?>(null) }
     var closing by remember { mutableStateOf<BudgetCard?>(null) }
     var reopening by remember { mutableStateOf<BudgetCard?>(null) }
+    var tab by rememberSaveable { mutableStateOf(BudgetTab.OPEN) }
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val res = LocalContext.current.resources
@@ -106,11 +115,19 @@ fun BudgetsScreen(
     } else {
         ListScreen(stringResource(R.string.budget_add), { creating = true }, snackbarHostState = snackbar) {
             item { ScreenTitle(stringResource(R.string.nav_budgets)) }
-            openBudgetItems(state, onAction = { action = it }, onClose = { closing = it }, onEdit = onEditBudget) { l, r ->
-                scope.launch { vm.resolve(l, r) }
-            }
-            closedBudgetItems(state, onReopen = { reopening = it }, onEdit = onEditBudget) { b ->
-                scope.launch { show(vm.restore(b), res.getString(R.string.budget_restored, b.name)) }
+            item { BudgetTabs(tab, state.open.size, state.closedPeriod.size + state.archived.size) { tab = it } }
+            when (tab) {
+                BudgetTab.OPEN -> {
+                    openBudgetItems(state, onAction = { action = it }, onClose = { closing = it }, onEdit = onEditBudget) { l, r ->
+                        scope.launch { vm.resolve(l, r) }
+                    }
+                }
+
+                BudgetTab.CLOSED -> {
+                    closedBudgetItems(state, onReopen = { reopening = it }, onEdit = onEditBudget) { b ->
+                        scope.launch { show(vm.restore(b), res.getString(R.string.budget_restored, b.name)) }
+                    }
+                }
             }
         }
     }
@@ -132,7 +149,7 @@ fun BudgetsScreen(
     }
 }
 
-/** "Open budgets": the budgets in use, each with its period, figures and actions. */
+/** "Open" tab: the budgets in use, each with its period, figures and actions. */
 private fun LazyListScope.openBudgetItems(
     state: BudgetsState,
     onAction: (BudgetAction) -> Unit,
@@ -144,7 +161,6 @@ private fun LazyListScope.openBudgetItems(
         item { EmptyCard(AppIcons.PieChart, stringResource(R.string.budget_empty_title), stringResource(R.string.budget_empty_message)) }
         return
     }
-    item { SectionTitle(stringResource(R.string.budget_section_open, state.open.size)) }
     if (state.open.isEmpty()) {
         item { Text(stringResource(R.string.budget_none_open), style = MaterialTheme.typography.bodyMedium) }
     }
@@ -156,15 +172,17 @@ private fun LazyListScope.openBudgetItems(
     }
 }
 
-/** "Closed budgets": periods closed early (Reopen) and archived budgets (Restore), so a mis-tap can be undone. */
+/** "Closed" tab: periods closed early (Reopen) and archived budgets (Restore), so a mis-tap can be undone. */
 private fun LazyListScope.closedBudgetItems(
     state: BudgetsState,
     onReopen: (BudgetCard) -> Unit,
     onEdit: (String) -> Unit,
     onRestore: (BudgetHeader) -> Unit,
 ) {
-    if (state.closedPeriod.isEmpty() && state.archived.isEmpty()) return
-    item { SectionTitle(stringResource(R.string.budget_section_closed, state.closedPeriod.size + state.archived.size)) }
+    if (state.closedPeriod.isEmpty() && state.archived.isEmpty()) {
+        item { Text(stringResource(R.string.budget_none_closed), style = MaterialTheme.typography.bodyMedium) }
+        return
+    }
     items(state.closedPeriod, key = { "c" + it.id }) { card ->
         ClosedPeriodCard(card, onReopen = { onReopen(card) }, onEdit = { onEdit(card.id) })
     }
@@ -192,15 +210,22 @@ private fun BudgetActionDialog(
             is BudgetAction.Allocate -> R.string.budget_allocate to budgetCategories
             is BudgetAction.Fund -> R.string.budget_fund to emptyList()
             is BudgetAction.SaveToGoal -> R.string.budget_save_to_goal to state.goals.map { Option(it.id, it.name) }
+            is BudgetAction.EditAllocation -> R.string.budget_edit_allocation to emptyList()
         }
+    val edit = a as? BudgetAction.EditAllocation
     AmountActionDialog(
-        title = stringResource(title),
+        title =
+            edit?.let { stringResource(R.string.budget_edit_allocation_title, state.categoryNames[it.categoryId].orEmpty()) }
+                ?: stringResource(title),
         choices = choices,
+        initialAmount = edit?.current?.let { MoneyFormatter.plain(it) }.orEmpty(),
+        hint = edit?.let { stringResource(R.string.budget_edit_allocation_hint) },
         onSubmit = { choice, amount ->
             when (a) {
                 is BudgetAction.Allocate -> vm.allocateTo(a.periodId, choice, amount, key)
                 is BudgetAction.Fund -> vm.fund(a.periodId, amount, key)
                 is BudgetAction.SaveToGoal -> vm.saveToGoalChoice(a.periodId, choice, amount, key)
+                is BudgetAction.EditAllocation -> vm.setAllocation(a.periodId, a.categoryId, amount, key)
             }
         },
         onDismiss = onDismiss,
@@ -254,7 +279,9 @@ private fun BudgetCardView(
             }
             AvailablePanel(o.availableToBudget, o.funding)
             o.categories.forEach { line ->
-                CategoryLine(names[line.categoryId].orEmpty(), line.remaining, line.spent, line.allocated)
+                CategoryLine(names[line.categoryId].orEmpty(), line.remaining, line.spent, line.allocated) {
+                    onAction(BudgetAction.EditAllocation(o.period.id, line.categoryId, line.allocated))
+                }
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 OutlinedButton(
@@ -322,13 +349,14 @@ private fun AvailablePanel(
     }
 }
 
-/** One budget category: remaining amount, a usage bar (red once overspent) and spent of allocated. */
+/** One budget category: remaining amount, a usage bar (red once overspent), spent of allocated and "Edit allocation". */
 @Composable
 private fun CategoryLine(
     name: String,
     remaining: Money,
     spent: Money,
     allocated: Money,
+    onEditAllocation: () -> Unit,
 ) {
     val over = remaining.isNegative
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = LocalSpacing.current.xs)) {
@@ -347,11 +375,15 @@ private fun CategoryLine(
         if (over) 1f else usedBp / FULL_BP,
         if (over) LocalFinanceColors.current.expense else MaterialTheme.colorScheme.secondary,
     )
-    Text(
-        stringResource(R.string.budget_line_detail, spent.display(), allocated.display()),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            stringResource(R.string.budget_line_detail, spent.display(), allocated.display()),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = onEditAllocation) { Text(stringResource(R.string.budget_edit_allocation)) }
+    }
 }
 
 @Composable
@@ -360,9 +392,11 @@ private fun AmountActionDialog(
     choices: List<Option>,
     onSubmit: suspend (String?, String) -> Int?,
     onDismiss: () -> Unit,
+    initialAmount: String = "",
+    hint: String? = null,
 ) {
     val scope = rememberCoroutineScope()
-    var amount by remember { mutableStateOf("") }
+    var amount by remember { mutableStateOf(initialAmount) }
     var choice by remember { mutableStateOf<Option?>(null) }
     var error by remember { mutableStateOf<Int?>(null) }
     AlertDialog(
@@ -372,6 +406,7 @@ private fun AmountActionDialog(
             Column(verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
                 if (choices.isNotEmpty()) ChoiceChips(choices, choice, { it.label }, { choice = it })
                 AmountField(amount, { amount = it }, stringResource(R.string.field_amount), null)
+                hint?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 ErrorLine(error)
             }
         },
