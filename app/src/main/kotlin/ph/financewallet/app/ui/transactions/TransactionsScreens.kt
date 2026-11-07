@@ -4,27 +4,23 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,26 +31,32 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import ph.financewallet.app.R
 import ph.financewallet.app.ui.common.AmountField
-import ph.financewallet.app.ui.common.AmountText
+import ph.financewallet.app.ui.common.CardList
 import ph.financewallet.app.ui.common.ChoiceChips
+import ph.financewallet.app.ui.common.EmptyCard
 import ph.financewallet.app.ui.common.ErrorLine
+import ph.financewallet.app.ui.common.FieldLabel
 import ph.financewallet.app.ui.common.ListRow
+import ph.financewallet.app.ui.common.ListScreen
 import ph.financewallet.app.ui.common.ScreenTitle
 import ph.financewallet.app.ui.common.TxnAmount
 import ph.financewallet.app.ui.common.TxnIcon
-import ph.financewallet.app.ui.components.EmptyState
+import ph.financewallet.app.ui.common.display
+import ph.financewallet.app.ui.common.displayWithWeekday
 import ph.financewallet.app.ui.components.LoadingState
 import ph.financewallet.app.ui.theme.AppIcons
 import ph.financewallet.app.ui.theme.LocalSpacing
 import ph.financewallet.data.ledger.TransactionListItem
 import ph.financewallet.domain.ledger.TxnType
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 @Composable
 fun TransactionsScreen(
@@ -65,35 +67,24 @@ fun TransactionsScreen(
     val state by vm.state.collectAsStateWithLifecycle()
     var deleting by remember { mutableStateOf<TransactionListItem?>(null) }
     LaunchedEffect(Unit) { vm.refresh() }
-    Scaffold(
-        contentWindowInsets = WindowInsets(0),
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onAdd,
-                icon = { Icon(AppIcons.Add, contentDescription = null) },
-                text = { Text(stringResource(R.string.txn_add)) },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            )
-        },
-    ) { padding ->
-        Column(Modifier.padding(padding)) {
-            when {
-                state.loading -> {
-                    LoadingState(stringResource(R.string.loading))
-                }
-
-                state.items.isEmpty() -> {
-                    EmptyState(
-                        stringResource(R.string.txn_empty_title),
-                        stringResource(R.string.txn_empty_message),
-                        actionLabel = stringResource(R.string.txn_add),
-                        onAction = onAdd,
-                    )
-                }
-
-                else -> {
-                    TransactionList(state, onLoadMore = vm::loadMore, onSelect = { deleting = it })
+    if (state.loading) {
+        LoadingState(stringResource(R.string.loading))
+        return
+    }
+    ListScreen(stringResource(R.string.txn_add), onAdd) {
+        item { ScreenTitle(stringResource(R.string.nav_transactions)) }
+        if (state.items.isEmpty()) {
+            item { EmptyCard(AppIcons.List, stringResource(R.string.txn_empty_title), stringResource(R.string.txn_empty_message)) }
+        }
+        // Newest first, so grouping keeps the days in order; a day split across pages joins up once both are loaded.
+        state.items.groupBy { it.date }.forEach { (date, rows) ->
+            item(key = "h$date") { DayHeader(date, state.today) }
+            item(key = "d$date") { CardList(rows) { TransactionRow(it, onSelect = { t -> deleting = t }) } }
+        }
+        if (state.next != null) {
+            item {
+                OutlinedButton(onClick = vm::loadMore, enabled = !state.loadingMore, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.txn_load_more))
                 }
             }
         }
@@ -102,26 +93,22 @@ fun TransactionsScreen(
 }
 
 @Composable
-private fun TransactionList(
-    state: TransactionsState,
-    onLoadMore: () -> Unit,
-    onSelect: (TransactionListItem) -> Unit,
+private fun DayHeader(
+    date: LocalDate,
+    today: LocalDate?,
 ) {
-    val spacing = LocalSpacing.current
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = FAB_CLEARANCE)) {
-        item { Box(Modifier.padding(horizontal = spacing.md)) { ScreenTitle(stringResource(R.string.nav_transactions)) } }
-        items(state.items, key = { it.id }) { item ->
-            TransactionRow(item, onSelect)
-            HorizontalDivider(Modifier.padding(start = DIVIDER_INSET), color = MaterialTheme.colorScheme.outlineVariant)
+    val label =
+        when (date) {
+            today -> stringResource(R.string.txn_today)
+            today?.minusDays(1) -> stringResource(R.string.txn_yesterday)
+            else -> date.displayWithWeekday()
         }
-        if (state.next != null) {
-            item {
-                OutlinedButton(onClick = onLoadMore, enabled = !state.loadingMore, modifier = Modifier.fillMaxWidth().padding(spacing.sm)) {
-                    Text(stringResource(R.string.txn_load_more))
-                }
-            }
-        }
-    }
+    Text(
+        label,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = LocalSpacing.current.sm).semantics { heading() },
+    )
 }
 
 @Composable
@@ -129,9 +116,9 @@ private fun TransactionRow(
     item: TransactionListItem,
     onSelect: (TransactionListItem) -> Unit,
 ) {
+    // The date is in the day heading above, so the row shows where the money moved.
     val subtitle =
         listOfNotNull(
-            item.date.format(ROW_DATE),
             item.counterpartyName?.let { "${item.accountName} → $it" } ?: item.accountName,
             if (item.pending) stringResource(R.string.txn_pending) else null,
         ).joinToString(" · ")
@@ -142,10 +129,6 @@ private fun TransactionRow(
         onClick = { onSelect(item) },
     ) { TxnAmount(item.type, item.amount) }
 }
-
-private val FAB_CLEARANCE = 96.dp
-private val DIVIDER_INSET = 72.dp
-private val ROW_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
 
 @Composable
 fun txnTitle(item: TransactionListItem): String {
@@ -179,7 +162,7 @@ private fun DeleteDialog(
                     error = vm.delete(item.id)
                     if (error == null) onDismiss()
                 }
-            }) { Text(stringResource(R.string.action_delete)) }
+            }) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
         },
         dismissButton = {
             TextButton(onClick = {
@@ -213,7 +196,6 @@ fun EntryScreen(
             .padding(bottom = spacing.md),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        ScreenTitle(stringResource(if (editTxnId != null) R.string.txn_edit_title else R.string.txn_add))
         ChoiceChips(EntryKind.entries.toList(), form.kind, { stringResource(kindLabel(it)) }, { k ->
             vm.edit { it.copy(kind = k, categoryId = null) }
             // A message about the previous type (e.g. "Choose a category") no longer applies.
@@ -227,11 +209,7 @@ fun EntryScreen(
             Modifier.testTag("amount"),
         )
         EntryChoices(vm, form, options)
-        OutlinedTextField(form.date, { t ->
-            vm.edit {
-                it.copy(date = t)
-            }
-        }, label = { Text(stringResource(R.string.field_date)) }, singleLine = true)
+        DateField(form.date) { iso -> vm.edit { it.copy(date = iso) } }
         OutlinedTextField(
             form.description,
             { t -> vm.edit { it.copy(description = t) } },
@@ -252,17 +230,65 @@ fun EntryScreen(
     }
 }
 
+/**
+ * The transaction date, shown as "7 Nov 2026" and chosen with the system date picker. The form keeps ISO text, which
+ * the view model validates as before. The picker works in UTC midnight millis, so the day never shifts by time zone.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DateField(
+    iso: String,
+    onPick: (String) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    val date = runCatching { LocalDate.parse(iso) }.getOrNull()
+    val pickLabel = stringResource(R.string.date_pick)
+    Box {
+        OutlinedTextField(
+            date?.display() ?: iso,
+            {},
+            readOnly = true,
+            label = { Text(stringResource(R.string.field_date)) },
+            trailingIcon = { Icon(AppIcons.Event, contentDescription = null) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Box(Modifier.matchParentSize().clickable(onClickLabel = pickLabel) { open = true })
+    }
+    if (open) {
+        val picker = rememberDatePickerState(initialSelectedDateMillis = date?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli())
+        DatePickerDialog(
+            onDismissRequest = { open = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    picker.selectedDateMillis?.let {
+                        onPick(
+                            Instant
+                                .ofEpochMilli(it)
+                                .atZone(ZoneOffset.UTC)
+                                .toLocalDate()
+                                .toString(),
+                        )
+                    }
+                    open = false
+                }) { Text(stringResource(R.string.action_save)) }
+            },
+            dismissButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.action_cancel)) } },
+        ) { DatePicker(picker, title = { Text(pickLabel, Modifier.padding(LocalSpacing.current.md)) }) }
+    }
+}
+
 @Composable
 private fun EntryChoices(
     vm: EntryViewModel,
     form: EntryForm,
     options: EntryOptions,
 ) {
-    Text(stringResource(if (form.kind == EntryKind.TRANSFER) R.string.field_from_account else R.string.field_account))
+    FieldLabel(stringResource(if (form.kind == EntryKind.TRANSFER) R.string.field_from_account else R.string.field_account))
     OptionChips(options.accounts, form.accountId) { id -> vm.edit { it.copy(accountId = id) } }
     when (form.kind) {
         EntryKind.TRANSFER -> {
-            Text(stringResource(R.string.field_to_account))
+            FieldLabel(stringResource(R.string.field_to_account))
             OptionChips(
                 options.accounts.filter { it.id != form.accountId },
                 form.toAccountId,
@@ -270,7 +296,7 @@ private fun EntryChoices(
         }
 
         else -> {
-            Text(stringResource(R.string.field_category))
+            FieldLabel(stringResource(R.string.field_category))
             val categories = if (form.kind == EntryKind.EXPENSE) options.expenseCategories else options.incomeCategories
             if (categories.isEmpty()) Text(stringResource(R.string.entry_no_categories), style = MaterialTheme.typography.bodySmall)
             OptionChips(categories, form.categoryId) { id -> vm.edit { it.copy(categoryId = id) } }

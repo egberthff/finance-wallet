@@ -4,16 +4,16 @@
 |---|---|
 
 ## 1. Where things stand
-- **Build:** `gradlew check` passes. 287 tests (domain 117, importers 20, data 104, app 46), 0 failed, 0 skipped. Lint has
+- **Build:** `gradlew check` passes. 291 tests (domain 117, importers 20, data 104, app 50), 0 failed, 0 skipped. Lint has
   0 errors; 2 accepted warnings (OldTargetApi: targetSdk 36; ObsoleteSdkInt: the `mipmap-anydpi-v26` folder, required for
   the adaptive icon to link).
 - **Release candidate:** `dist/` (git-ignored, archive it):
 
   | File | SHA-256 |
   |---|---|
-  | `FinanceManager-1.0.0-rc1.apk` (10.4 MB, side-load/testing) | `becef1cbedb89f94ade08d23c61b8a0c56f8e5a92ff0552ac0cc9700dfd74de1` |
-  | `FinanceManager-1.0.0-rc1.aab` (9.7 MB, Play upload) | `bbbd8873dea18f020057be5c4598ce8ab81a112537e6f816136f681a741e4f12` |
-  | `FinanceManager-1.0.0-rc1-mapping.txt` (decode crash reports) | `509e06e60888df8cba7b8fa538d7fbdc3af6dae7e2844761d599693494b9a883` |
+  | `FinanceManager-1.0.0-rc1.apk` (10.6 MB, side-load/testing) | `7b35bdf1cc39e143fd3ba114aabbcbbc44f607ef71242620589e94821ac2b954` |
+  | `FinanceManager-1.0.0-rc1.aab` (10.0 MB, Play upload) | `fd7d2081cccdd3216d8e20471b3173fca2d83443d394f933b16805d3d371bd23` |
+  | `FinanceManager-1.0.0-rc1-mapping.txt` (decode crash reports) | `7c43d7b3d9b00b3d5fd90215acc0f97e9102eb5b951525cf86a4fe7c00654667` |
 
   Signed v2 with certificate SHA-256 `d418ae50552cc9de5569538bd979bd55dd918e64712c7e426e1f5ec2b9555e2d`; 16 KB aligned;
   no network permission.
@@ -49,7 +49,7 @@
 | Backup passphrases | `Mango-Jeepney-Sunset-42` (debug backup), `Release-Check-Bayanihan-7` (release backup) |
 | Expected balances in the debug backup | BPI ₱38,000.00, GCash ₱3,449.50, net worth ₱61,449.50 |
 
-The API 33 emulator state after the run: release build installed with the debug backup restored. The API 30 emulator:
+The API 33 emulator state after the UI design pass: release build freshly installed (PIN 123456, no data; restore the debug backup from `/sdcard/Download` to get data back). The API 30 emulator:
 release build with one account (Maya ₱1,500.00).
 
 ## 5. Gotchas learned

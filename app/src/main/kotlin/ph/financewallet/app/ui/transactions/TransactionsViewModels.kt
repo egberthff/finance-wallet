@@ -29,6 +29,8 @@ data class TransactionsState(
     val items: List<TransactionListItem> = emptyList(),
     val next: PageCursor? = null,
     val loadingMore: Boolean = false,
+    /** For the "Today" and "Yesterday" day headings; from the app clock (Asia/Manila). */
+    val today: java.time.LocalDate? = null,
 )
 
 /** Paged list (keyset), newest first. Loads one page at a time; never the whole history (NFR-03). */
@@ -48,7 +50,7 @@ class TransactionsViewModel(
 
     suspend fun reload() {
         val page = s.transactions.page()
-        mutable.value = TransactionsState(loading = false, items = page.items, next = page.next)
+        mutable.value = TransactionsState(loading = false, items = page.items, next = page.next, today = s.ctx.today())
     }
 
     fun loadMore() {

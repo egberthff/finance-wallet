@@ -20,6 +20,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,6 +34,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -40,13 +43,20 @@ import kotlinx.coroutines.withContext
 import ph.financewallet.app.R
 import ph.financewallet.app.ui.accounts.CheckRow
 import ph.financewallet.app.ui.common.AmountText
+import ph.financewallet.app.ui.common.CardList
 import ph.financewallet.app.ui.common.ChoiceChips
+import ph.financewallet.app.ui.common.EmptyCard
 import ph.financewallet.app.ui.common.ErrorLine
+import ph.financewallet.app.ui.common.FieldLabel
+import ph.financewallet.app.ui.common.IconDisc
 import ph.financewallet.app.ui.common.LabeledRow
-import ph.financewallet.app.ui.common.ScreenTitle
+import ph.financewallet.app.ui.common.ListRow
+import ph.financewallet.app.ui.common.ListScreen
 import ph.financewallet.app.ui.common.SectionTitle
 import ph.financewallet.app.ui.common.SurfaceCard
+import ph.financewallet.app.ui.common.dateRange
 import ph.financewallet.app.ui.common.display
+import ph.financewallet.app.ui.theme.AppIcons
 import ph.financewallet.app.ui.theme.LocalSpacing
 import ph.financewallet.app.ui.transactions.Option
 import ph.financewallet.data.imports.PreviewRow
@@ -110,8 +120,10 @@ fun ImportScreen(vm: ImportViewModel) {
             }
         }
     val spacing = LocalSpacing.current
-    Column(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        ScreenTitle(stringResource(R.string.import_title))
+    Column(
+        Modifier.fillMaxSize().padding(horizontal = spacing.md).padding(top = spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
         when (state.step) {
             ImportStep.CHOOSE -> ChooseStep(state, vm, onPick = { picker.launch(PICKER_TYPES) })
             ImportStep.MAP -> MapStep(state, vm)
@@ -299,13 +311,10 @@ private fun PreviewSummary(state: ImportState) {
                     preview.count(RowClass.REJECTED),
                 ),
             )
-            if (preview.from != null &&
-                preview.to != null
-            ) {
-                Text(
-                    stringResource(R.string.budget_period, preview.from.toString(), preview.to.toString()),
-                    style = MaterialTheme.typography.bodySmall,
-                )
+            val from = preview.from
+            val to = preview.to
+            if (from != null && to != null) {
+                Text(dateRange(from, to), style = MaterialTheme.typography.bodySmall)
             }
             LabeledRow(stringResource(R.string.reports_cash_in)) { AmountText(preview.totalIn) }
             LabeledRow(stringResource(R.string.reports_cash_out)) { AmountText(-preview.totalOut) }
@@ -421,7 +430,13 @@ private fun DoneStep(
     val closing = state.preview?.closingBalance
     if (closing != null) {
         Text(
-            stringResource(R.string.import_offer_reconcile, closing.display(), state.preview.to.toString()),
+            stringResource(
+                R.string.import_offer_reconcile,
+                closing.display(),
+                state.preview.to
+                    ?.display()
+                    .orEmpty(),
+            ),
             style = MaterialTheme.typography.bodySmall,
         )
         CheckRow(stringResource(R.string.accounts_reconcile_adjust), adjust) { adjust = it }
@@ -451,20 +466,26 @@ fun ImportHistoryScreen(vm: ImportHistoryViewModel) {
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { vm.refresh() }
     val spacing = LocalSpacing.current
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        item { ScreenTitle(stringResource(R.string.import_history_title)) }
-        if (!state.loading && state.batches.isEmpty()) item { Text(stringResource(R.string.import_history_empty)) }
+    ListScreen {
+        if (!state.loading && state.batches.isEmpty()) {
+            item {
+                EmptyCard(AppIcons.History, stringResource(R.string.import_history_empty), stringResource(R.string.import_history_hint))
+            }
+        }
         items(state.batches, key = { it.id }) { b ->
             SurfaceCard {
                 Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                    Text(b.fileName, style = MaterialTheme.typography.titleSmall)
+                    Text(b.fileName, style = MaterialTheme.typography.titleMedium)
+                    val range = b.from?.let { f -> b.to?.let { t -> dateRange(f, t) } }
                     Text(
-                        state.accountNames[b.accountId].orEmpty() + " · " + listOfNotNull(b.from, b.to).joinToString(" – "),
+                        listOfNotNull(state.accountNames[b.accountId], range).joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
                         stringResource(R.string.import_done, b.imported, b.duplicates, b.skipped, b.rejected),
                         style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     if (b.rolledBack) {
                         Text(stringResource(R.string.import_rolled_back), style = MaterialTheme.typography.labelMedium)
@@ -531,29 +552,63 @@ fun RulesScreen(vm: RulesViewModel) {
     LaunchedEffect(Unit) { vm.refresh() }
     val names = state.categories.associate { it.id to it.label }
     val spacing = LocalSpacing.current
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+    ListScreen {
         item {
-            ScreenTitle(stringResource(R.string.rules_title))
-            Text(stringResource(R.string.rules_explain), style = MaterialTheme.typography.bodySmall)
-            OutlinedTextField(pattern, {
-                pattern = it
-            }, label = { Text(stringResource(R.string.rules_pattern)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            ChoiceChips(state.categories, state.categories.firstOrNull { it.id == category }, { it.label }, { category = it.id })
-            CheckRow(stringResource(R.string.rules_auto), auto) { auto = it }
-            ErrorLine(error)
-            Button(onClick = {
-                scope.launch {
-                    error = vm.create(pattern, category, auto)
-                    if (error == null) pattern = ""
-                }
-            }) { Text(stringResource(R.string.rules_add)) }
+            Text(
+                stringResource(R.string.rules_explain),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
-        items(state.rules, key = { it.id }) { r ->
-            LabeledRow("\"${r.patternNorm}\" → ${names[r.categoryId].orEmpty()}") {
-                Column {
-                    CheckRow(stringResource(R.string.rules_enabled), r.enabled) { v -> scope.launch { vm.setEnabled(r.id, v) } }
-                    TextButton(onClick = { scope.launch { vm.delete(r.id) } }) { Text(stringResource(R.string.action_delete)) }
+        item {
+            SurfaceCard {
+                Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    OutlinedTextField(pattern, {
+                        pattern = it
+                    }, label = { Text(stringResource(R.string.rules_pattern)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    FieldLabel(stringResource(R.string.field_category))
+                    ChoiceChips(state.categories, state.categories.firstOrNull { it.id == category }, { it.label }, { category = it.id })
+                    CheckRow(stringResource(R.string.rules_auto), auto) { auto = it }
+                    ErrorLine(error)
+                    Button(onClick = {
+                        scope.launch {
+                            error = vm.create(pattern, category, auto)
+                            if (error == null) pattern = ""
+                        }
+                    }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.rules_add)) }
                 }
+            }
+        }
+        if (state.rules.isNotEmpty()) {
+            item {
+                RuleList(
+                    state.rules,
+                    names,
+                    onEnable = { id, v -> scope.launch { vm.setEnabled(id, v) } },
+                    onDelete = { id -> scope.launch { vm.delete(id) } },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RuleList(
+    rules: List<ph.financewallet.data.db.entity.CategoryRuleEntity>,
+    names: Map<String, String>,
+    onEnable: (String, Boolean) -> Unit,
+    onDelete: (String) -> Unit,
+) {
+    CardList(rules) { r ->
+        ListRow(
+            "\"${r.patternNorm}\"",
+            subtitle = "→ " + names[r.categoryId].orEmpty(),
+            leading = { IconDisc(AppIcons.Tune, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer) },
+        ) {
+            // The switch is the rule's on/off state; its label is the rule itself for screen readers.
+            Switch(r.enabled, { v -> onEnable(r.id, v) }, Modifier.semantics { contentDescription = r.patternNorm })
+            TextButton(onClick = { onDelete(r.id) }) {
+                Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
             }
         }
     }

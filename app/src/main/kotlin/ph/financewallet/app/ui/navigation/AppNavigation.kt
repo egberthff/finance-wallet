@@ -106,15 +106,22 @@ fun AppNavigation(
     var owningTab by rememberSaveable { mutableStateOf(TopLevel.HOME.route) }
     LaunchedEffect(current) { if (current != null && TopLevel.entries.any { it.route == current }) owningTab = current }
     Scaffold(
-        topBar = { if (!isTopLevel) BackBar(onBack = { nav.popBackStack() }) },
+        topBar = { if (!isTopLevel) BackBar(subScreenTitle(current), onBack = { nav.popBackStack() }) },
         bottomBar = {
             NavigationBar(tonalElevation = 0.dp) {
                 TopLevel.entries.forEach { dest ->
                     NavigationBarItem(
                         selected = owningTab == dest.route,
                         onClick = {
-                            // Re-tapping the current tab returns to its first screen; another tab restores its own stack.
-                            if (owningTab == dest.route) nav.popBackStack(dest.route, inclusive = false) else nav.goTopLevel(dest.route)
+                            // Re-tapping the current tab returns to its first screen; another tab restores its own stack,
+                            // which may end on a sub-screen, so the tapped tab becomes the owner here, not only when its
+                            // first screen is shown.
+                            if (owningTab == dest.route) {
+                                nav.popBackStack(dest.route, inclusive = false)
+                            } else {
+                                owningTab = dest.route
+                                nav.goTopLevel(dest.route)
+                            }
                         },
                         icon = { Icon(dest.icon(), contentDescription = null) },
                         label = { Text(stringResource(dest.label), maxLines = 1) },
@@ -141,12 +148,40 @@ fun AppNavigation(
     }
 }
 
-/** Sub-screens show a back arrow; their own heading stays in the content, so the bar has no title. */
+/** The heading of a sub-screen, shown in its top bar so it stays visible while the content scrolls. */
+private fun subScreenTitle(route: String?): Int? =
+    when {
+        route == null -> null
+        route.startsWith("$EDIT/") -> R.string.txn_edit_title
+        else -> SUB_SCREEN_TITLES[route]
+    }
+
+private val SUB_SCREEN_TITLES =
+    mapOf(
+        ENTRY to R.string.txn_add,
+        GOALS to R.string.goals_title,
+        CATEGORIES to R.string.categories_title,
+        DEBTS to R.string.debts_title,
+        BILLS to R.string.bills_title,
+        ASSETS to R.string.assets_title,
+        REPORTS to R.string.reports_title,
+        IMPORT to R.string.import_title,
+        IMPORT_HISTORY to R.string.import_history_title,
+        RULES to R.string.rules_title,
+        INSIGHTS to R.string.insights_title,
+        BACKUP to R.string.backup_title,
+        PRIVACY to R.string.privacy_title,
+    )
+
+/** Sub-screens show a back arrow and their title; the content below starts with the screen's own data. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BackBar(onBack: () -> Unit) {
+private fun BackBar(
+    @androidx.annotation.StringRes title: Int?,
+    onBack: () -> Unit,
+) {
     TopAppBar(
-        title = {},
+        title = { if (title != null) Text(stringResource(title), style = MaterialTheme.typography.titleLarge, maxLines = 1) },
         navigationIcon = {
             IconButton(onClick = onBack) { Icon(AppIcons.Back, contentDescription = stringResource(R.string.action_back)) }
         },

@@ -44,6 +44,8 @@ data class BudgetsState(
     val goals: List<GoalSummary> = emptyList(),
     /** Leftovers of closed periods waiting for a decision (MANUAL rollover policy), per budget id. */
     val leftovers: Map<String, List<Leftover>> = emptyMap(),
+    /** For "N days left" in the current period; from the app clock (Asia/Manila). */
+    val today: java.time.LocalDate? = null,
 )
 
 /**
@@ -78,6 +80,7 @@ class BudgetsViewModel(
             expenseCategories = categories.filter { it.accountClass == "EXPENSE" && it.archivedAt == null }.map { Option(it.id, it.name) },
             goals = s.goals.goals().filter { it.status.name != "ARCHIVED" },
             leftovers = cards.associate { it.id to s.budgets.leftovers(it.id) }.filterValues { it.isNotEmpty() },
+            today = s.ctx.today(),
         )
     }
 

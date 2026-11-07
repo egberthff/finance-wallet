@@ -58,7 +58,7 @@
     <string name="field_from_account">From account</string>
     <string name="field_to_account">To account</string>
     <string name="field_category">Category</string>
-    <string name="field_date">Date (YYYY-MM-DD)</string>
+    <string name="field_date">Date</string>
     <string name="field_description">Description (optional)</string>
     <string name="kind_expense">Expense</string>
     <string name="kind_income">Income</string>
@@ -479,4 +479,27 @@
         <item quantity="one">Estimate: income minus spending, averaged over the last %d full month. Not a promise of future income.</item>
         <item quantity="other">Estimate: income minus spending, averaged over the last %d full months. Not a promise of future income.</item>
     </plurals>
+    <!-- UI design pass (2026-11-07) -->
+    <string name="debt_empty_title">No debts recorded</string>
+    <string name="debt_empty_message">Track loans, credit cards, installments and money you borrowed. Payments split principal from interest and fees.</string>
+    <string name="bill_empty_title">Nothing scheduled</string>
+    <string name="bill_empty_message">Add rent, utilities, subscriptions or expected income. You get a reminder before the due date; nothing is ever paid automatically.</string>
+    <string name="asset_empty_title">No assets yet</string>
+    <string name="goal_empty_title">No goals yet</string>
+    <string name="goal_empty_message">Create a goal, then set money aside for it from your budget or your free money.</string>
+    <string name="reports_earlier">Earlier period</string>
+    <string name="reports_later">Later period</string>
+    <string name="accounts_total">Total in active accounts</string>
+    <string name="txn_today">Today</string>
+    <string name="txn_yesterday">Yesterday</string>
+    <string name="date_pick">Choose a date</string>
+    <string name="categories_subcategory_of">Under %1$s</string>
+    <string name="budget_left">left</string>
+    <string name="budget_over">over</string>
+    <plurals name="budget_days_left">
+        <item quantity="one">%d day left</item>
+        <item quantity="other">%d days left</item>
+    </plurals>
+    <string name="debt_outstanding">Outstanding</string>
+    <string name="import_history_hint">Statements you import appear here. Each import can be undone as a whole.</string>
 </resources>

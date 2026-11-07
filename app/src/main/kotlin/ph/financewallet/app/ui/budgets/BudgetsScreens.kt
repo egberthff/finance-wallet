@@ -4,23 +4,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -31,27 +24,33 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import ph.financewallet.app.R
 import ph.financewallet.app.ui.accounts.CheckRow
-import ph.financewallet.app.ui.common.AddFab
 import ph.financewallet.app.ui.common.AmountField
 import ph.financewallet.app.ui.common.AmountText
 import ph.financewallet.app.ui.common.ChoiceChips
+import ph.financewallet.app.ui.common.EmptyCard
 import ph.financewallet.app.ui.common.ErrorLine
 import ph.financewallet.app.ui.common.FigureCard
+import ph.financewallet.app.ui.common.IconDisc
 import ph.financewallet.app.ui.common.LabeledRow
+import ph.financewallet.app.ui.common.ListScreen
 import ph.financewallet.app.ui.common.ScreenTitle
+import ph.financewallet.app.ui.common.ShareBar
+import ph.financewallet.app.ui.common.StatusPill
 import ph.financewallet.app.ui.common.SurfaceCard
+import ph.financewallet.app.ui.common.dateRange
 import ph.financewallet.app.ui.common.display
-import ph.financewallet.app.ui.components.EmptyState
 import ph.financewallet.app.ui.components.LoadingState
+import ph.financewallet.app.ui.theme.AppIcons
 import ph.financewallet.app.ui.theme.LocalFinanceColors
 import ph.financewallet.app.ui.theme.LocalSpacing
 import ph.financewallet.app.ui.transactions.Option
@@ -61,6 +60,7 @@ import ph.financewallet.data.budget.LeftoverResolution
 import ph.financewallet.domain.allocation.BudgetMath
 import ph.financewallet.domain.allocation.IncomeMode
 import ph.financewallet.domain.money.Money
+import java.time.temporal.ChronoUnit
 
 /** Which action dialog is open on a budget card. */
 private sealed interface BudgetAction {
@@ -89,60 +89,28 @@ fun BudgetsScreen(
     var action by remember { mutableStateOf<BudgetAction?>(null) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { vm.refresh() }
-    Scaffold(
-        contentWindowInsets = WindowInsets(0),
-        floatingActionButton = {
-            AddFab(stringResource(R.string.budget_add)) { creating = true }
-        },
-    ) { padding ->
-        Column(Modifier.padding(padding)) {
-            when {
-                state.loading -> {
-                    LoadingState(stringResource(R.string.loading))
+    if (state.loading) {
+        LoadingState(stringResource(R.string.loading))
+    } else {
+        ListScreen(stringResource(R.string.budget_add), { creating = true }) {
+            item { ScreenTitle(stringResource(R.string.nav_budgets)) }
+            if (state.budgets.isEmpty()) {
+                item {
+                    EmptyCard(AppIcons.PieChart, stringResource(R.string.budget_empty_title), stringResource(R.string.budget_empty_message))
                 }
-
-                state.budgets.isEmpty() -> {
-                    EmptyState(
-                        stringResource(R.string.budget_empty_title),
-                        stringResource(R.string.budget_empty_message),
-                        actionLabel = stringResource(R.string.budget_add),
-                        onAction = { creating = true },
-                    )
-                }
-
-                else -> {
-                    BudgetList(
-                        state,
-                        onAction = { action = it },
-                        onClose = { id -> scope.launch { vm.close(id) } },
-                        onResolve = { l, r -> scope.launch { vm.resolve(l, r) } },
-                    )
+            }
+            items(state.budgets, key = { it.id }) { card ->
+                Column(verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
+                    BudgetCardView(card, state.categoryNames, state.today, { action = it }, { id -> scope.launch { vm.close(id) } })
+                    state.leftovers[card.id]?.let { list ->
+                        LeftoverList(list, state.categoryNames) { l, r -> scope.launch { vm.resolve(l, r) } }
+                    }
                 }
             }
         }
     }
     if (creating) CreateBudgetDialog(vm, state.expenseCategories, onDismiss = { creating = false })
     action?.let { a -> BudgetActionDialog(vm, state, a, newKey, onDismiss = { action = null }) }
-}
-
-@Composable
-private fun BudgetList(
-    state: BudgetsState,
-    onAction: (BudgetAction) -> Unit,
-    onClose: (String) -> Unit,
-    onResolve: (Leftover, LeftoverResolution) -> Unit,
-) {
-    LazyColumn(
-        Modifier.fillMaxSize().padding(horizontal = LocalSpacing.current.md),
-        contentPadding = PaddingValues(bottom = FAB_CLEARANCE),
-        verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.md),
-    ) {
-        item { ScreenTitle(stringResource(R.string.nav_budgets)) }
-        items(state.budgets, key = { it.id }) { card ->
-            BudgetCardView(card, state.categoryNames, onAction, onClose)
-            state.leftovers[card.id]?.let { LeftoverList(it, state.categoryNames, onResolve) }
-        }
-    }
 }
 
 @Composable
@@ -211,23 +179,19 @@ private fun LeftoverList(
 private fun BudgetCardView(
     card: BudgetCard,
     names: Map<String, String>,
+    today: java.time.LocalDate?,
     onAction: (BudgetAction) -> Unit,
     onClose: (String) -> Unit,
 ) {
     val spacing = LocalSpacing.current
     SurfaceCard {
         Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            Text(card.name, style = MaterialTheme.typography.titleMedium)
             val o = card.current
+            BudgetHeader(card.name, o?.period?.start, o?.period?.endInclusive, today)
             if (o == null) {
                 Text(stringResource(R.string.budget_no_current_period))
                 return@Column
             }
-            Text(
-                stringResource(R.string.budget_period, o.period.start.toString(), o.period.endInclusive.toString()),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             AvailablePanel(o.availableToBudget, o.funding)
             o.categories.forEach { line ->
                 CategoryLine(names[line.categoryId].orEmpty(), line.remaining, line.spent, line.allocated)
@@ -244,6 +208,33 @@ private fun BudgetCardView(
                 ) { Text(stringResource(R.string.budget_save_to_goal)) }
                 TextButton(onClick = { onClose(o.period.id) }) { Text(stringResource(R.string.budget_close_period)) }
             }
+        }
+    }
+}
+
+/** Budget name, its current period as a compact range and how many days of it are left. */
+@Composable
+private fun BudgetHeader(
+    name: String,
+    start: java.time.LocalDate?,
+    end: java.time.LocalDate?,
+    today: java.time.LocalDate?,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(name, style = MaterialTheme.typography.titleMedium)
+            if (start != null && end != null) {
+                Text(dateRange(start, end), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        if (end != null && today != null && !today.isAfter(end)) {
+            // Inclusive of today: on the last day of the period, 1 day is left.
+            val days = (ChronoUnit.DAYS.between(today, end) + 1).toInt()
+            StatusPill(
+                pluralStringResource(R.plurals.budget_days_left, days, days),
+                MaterialTheme.colorScheme.secondaryContainer,
+                MaterialTheme.colorScheme.onSecondaryContainer,
+            )
         }
     }
 }
@@ -285,17 +276,22 @@ private fun CategoryLine(
     spent: Money,
     allocated: Money,
 ) {
-    LabeledRow(name) { AmountText(remaining) }
-    // Integer basis points (floor, capped at 100 %); the float is only the bar's drawing fraction.
     val over = remaining.isNegative
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = LocalSpacing.current.xs)) {
+        Text(name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        AmountText(remaining)
+        Text(
+            " " + stringResource(if (over) R.string.budget_over else R.string.budget_left),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    // Integer basis points (floor, capped at 100 %); the float is only the bar's drawing fraction.
     val usedBp = if (allocated.isPositive) BudgetMath.goalProgressBp(spent, allocated) else 0
-    LinearProgressIndicator(
-        // Overspent (including spending with nothing allocated) always reads as a full red bar.
-        progress = { if (over) 1f else usedBp / FULL_BP },
-        modifier = Modifier.fillMaxWidth().height(BAR_HEIGHT).clip(MaterialTheme.shapes.extraSmall),
-        color = if (over) LocalFinanceColors.current.expense else MaterialTheme.colorScheme.secondary,
-        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-        drawStopIndicator = {},
+    // Overspent (including spending with nothing allocated) always reads as a full red bar.
+    ShareBar(
+        if (over) 1f else usedBp / FULL_BP,
+        if (over) LocalFinanceColors.current.expense else MaterialTheme.colorScheme.secondary,
     )
     Text(
         stringResource(R.string.budget_line_detail, spent.display(), allocated.display()),
@@ -402,21 +398,19 @@ fun GoalsScreen(
     var creating by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<GoalSummary?>(null) }
     LaunchedEffect(Unit) { vm.refresh() }
-    Scaffold(
-        contentWindowInsets = WindowInsets(0),
-        floatingActionButton = { AddFab(stringResource(R.string.goal_add)) { creating = true } },
-    ) { padding ->
-        LazyColumn(
-            Modifier.padding(padding).fillMaxSize().padding(horizontal = LocalSpacing.current.md),
-            verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm),
-        ) {
-            item { ScreenTitle(stringResource(R.string.goals_title)) }
-            item { FigureCard(stringResource(R.string.goal_free_money), state.freeMoney, stringResource(R.string.goal_free_money_caption)) }
-            if (!state.loading && state.goals.isEmpty()) {
-                item { Text(stringResource(R.string.goal_empty), style = MaterialTheme.typography.bodyMedium) }
-            }
-            items(state.goals, key = { it.id }) { g -> GoalCard(g, onClick = { selected = g }) }
+    ListScreen(stringResource(R.string.goal_add), { creating = true }) {
+        item {
+            FigureCard(
+                stringResource(R.string.goal_free_money),
+                state.freeMoney,
+                stringResource(R.string.goal_free_money_caption),
+                icon = AppIcons.Wallet,
+            )
         }
+        if (!state.loading && state.goals.isEmpty()) {
+            item { EmptyCard(AppIcons.Flag, stringResource(R.string.goal_empty_title), stringResource(R.string.goal_empty_message)) }
+        }
+        items(state.goals, key = { it.id }) { g -> GoalCard(g, onClick = { selected = g }) }
     }
     if (creating) CreateGoalDialog(vm, onDismiss = { creating = false })
     selected?.let { GoalDialog(vm, it, newKey, onDismiss = { selected = null }) }
@@ -429,23 +423,29 @@ private fun GoalCard(
 ) {
     val spacing = LocalSpacing.current
     SurfaceCard(onClick = onClick) {
-        Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-            LabeledRow(g.name) { Text(stringResource(R.string.goal_progress, g.progressBp / BP_PER_PERCENT)) }
-            LinearProgressIndicator(
-                progress = { g.progressBp / FULL_BP },
-                modifier = Modifier.fillMaxWidth().height(BAR_HEIGHT).clip(MaterialTheme.shapes.extraSmall),
-                color = MaterialTheme.colorScheme.secondary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                drawStopIndicator = {},
-            )
-            Text(
-                stringResource(R.string.goal_amounts, g.allocated.display(), g.target.display()),
-                style = MaterialTheme.typography.bodySmall,
-            )
+        Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
+                IconDisc(AppIcons.Flag, MaterialTheme.colorScheme.secondary, MaterialTheme.colorScheme.secondaryContainer)
+                Column(Modifier.weight(1f)) {
+                    Text(g.name, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        stringResource(R.string.goal_amounts, g.allocated.display(), g.target.display()),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Text(
+                    stringResource(R.string.goal_progress, g.progressBp / BP_PER_PERCENT),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
+            ShareBar(g.progressBp / FULL_BP, MaterialTheme.colorScheme.secondary)
             g.linkedHeadroom?.let {
                 Text(
                     stringResource(R.string.goal_linked_room, it.display()),
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -526,5 +526,3 @@ private fun GoalDialog(
 
 private const val BP_PER_PERCENT = 100
 private const val FULL_BP = 10_000f
-private val BAR_HEIGHT = 8.dp
-private val FAB_CLEARANCE = 96.dp

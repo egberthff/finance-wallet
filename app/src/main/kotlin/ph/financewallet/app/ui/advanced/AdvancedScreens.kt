@@ -6,17 +6,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -29,7 +26,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -40,14 +39,20 @@ import ph.financewallet.app.reminders.BillReminders
 import ph.financewallet.app.ui.accounts.CheckRow
 import ph.financewallet.app.ui.common.AmountField
 import ph.financewallet.app.ui.common.AmountText
+import ph.financewallet.app.ui.common.CardList
 import ph.financewallet.app.ui.common.ChoiceChips
+import ph.financewallet.app.ui.common.EmptyCard
 import ph.financewallet.app.ui.common.ErrorLine
 import ph.financewallet.app.ui.common.FigureCard
-import ph.financewallet.app.ui.common.LabeledRow
-import ph.financewallet.app.ui.common.ScreenTitle
+import ph.financewallet.app.ui.common.IconDisc
+import ph.financewallet.app.ui.common.ListRow
+import ph.financewallet.app.ui.common.ListScreen
 import ph.financewallet.app.ui.common.SectionTitle
+import ph.financewallet.app.ui.common.StatusPill
 import ph.financewallet.app.ui.common.SurfaceCard
 import ph.financewallet.app.ui.common.display
+import ph.financewallet.app.ui.theme.AppIcons
+import ph.financewallet.app.ui.theme.LocalFinanceColors
 import ph.financewallet.app.ui.theme.LocalSpacing
 import ph.financewallet.app.ui.transactions.Option
 import ph.financewallet.data.advanced.AssetKind
@@ -115,15 +120,10 @@ fun DebtsScreen(
     var adding by remember { mutableStateOf(false) }
     var paying by remember { mutableStateOf<DebtSummary?>(null) }
     LaunchedEffect(Unit) { vm.refresh() }
-    val spacing = LocalSpacing.current
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        item {
-            ScreenTitle(stringResource(R.string.debts_title))
-            Button(onClick = { adding = true }) { Text(stringResource(R.string.debt_add)) }
-            if (!state.loading &&
-                state.debts.isEmpty()
-            ) {
-                Text(stringResource(R.string.debt_empty), style = MaterialTheme.typography.bodyMedium)
+    ListScreen(stringResource(R.string.debt_add), { adding = true }) {
+        if (!state.loading && state.debts.isEmpty()) {
+            item {
+                EmptyCard(AppIcons.CreditCard, stringResource(R.string.debt_empty_title), stringResource(R.string.debt_empty_message))
             }
         }
         items(state.debts, key = { it.id }) { d -> DebtCard(d, onPay = { paying = d }) }
@@ -138,35 +138,75 @@ private fun DebtCard(
     onPay: () -> Unit,
 ) {
     val spacing = LocalSpacing.current
+    val fc = LocalFinanceColors.current
     SurfaceCard {
-        Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-            LabeledRow(d.name) { AmountText(-d.outstanding) }
+        Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            CardHeader(AppIcons.CreditCard, fc.expense, fc.expenseSoft, d.name, stringResource(R.string.debt_outstanding)) {
+                AmountText(-d.outstanding)
+            }
+            val muted = MaterialTheme.colorScheme.onSurfaceVariant
             Text(
                 stringResource(R.string.debt_detail, d.original.display(), d.interestAndFeesPaid.display()),
                 style = MaterialTheme.typography.bodySmall,
+                color = muted,
             )
             d.remainingInstallments?.let {
-                Text(
-                    pluralStringResource(R.plurals.debt_remaining, it, it),
-                    style = MaterialTheme.typography.bodySmall,
-                )
+                Text(pluralStringResource(R.plurals.debt_remaining, it, it), style = MaterialTheme.typography.bodySmall, color = muted)
             }
             val nextDue = d.nextDue
             val nextAmount = d.nextDueAmount
             if (nextDue != null && nextAmount != null) {
                 Text(
-                    stringResource(R.string.debt_next_due, nextAmount.display(), nextDue.toString()),
+                    stringResource(R.string.debt_next_due, nextAmount.display(), nextDue.display()),
                     style = MaterialTheme.typography.bodySmall,
+                    color = muted,
                 )
             }
-            Text(stringResource(debtStatusLabel(d)), style = MaterialTheme.typography.labelMedium)
-            if (d.outstanding.isPositive) OutlinedButton(onClick = onPay) { Text(stringResource(R.string.debt_pay)) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                DebtStatusPill(d.status)
+                Spacer(Modifier.weight(1f))
+                if (d.outstanding.isPositive) OutlinedButton(onClick = onPay) { Text(stringResource(R.string.debt_pay)) }
+            }
         }
     }
 }
 
-private fun debtStatusLabel(d: DebtSummary): Int =
-    when (d.status) {
+/** Card heading shared by debts and bills: icon disc, name, a muted second line and the amount on the right. */
+@Composable
+private fun CardHeader(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    tint: Color,
+    disc: Color,
+    title: String,
+    subtitle: String,
+    amount: @Composable () -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(LocalSpacing.current.md)) {
+        IconDisc(icon, tint, disc)
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        amount()
+    }
+}
+
+@Composable
+private fun DebtStatusPill(status: ph.financewallet.data.advanced.DebtStatus) {
+    val fc = LocalFinanceColors.current
+    val cs = MaterialTheme.colorScheme
+    val (bg, fg) =
+        when (status) {
+            ph.financewallet.data.advanced.DebtStatus.ACTIVE -> cs.secondaryContainer to cs.onSecondaryContainer
+            ph.financewallet.data.advanced.DebtStatus.PAID_OFF -> fc.incomeSoft to fc.income
+            ph.financewallet.data.advanced.DebtStatus.DEFAULTED -> fc.expenseSoft to fc.expense
+            ph.financewallet.data.advanced.DebtStatus.CLOSED -> cs.surfaceVariant to cs.onSurfaceVariant
+        }
+    StatusPill(stringResource(debtStatusLabel(status)), bg, fg)
+}
+
+private fun debtStatusLabel(status: ph.financewallet.data.advanced.DebtStatus): Int =
+    when (status) {
         ph.financewallet.data.advanced.DebtStatus.ACTIVE -> R.string.debt_status_active
         ph.financewallet.data.advanced.DebtStatus.PAID_OFF -> R.string.debt_status_paid_off
         ph.financewallet.data.advanced.DebtStatus.DEFAULTED -> R.string.debt_status_defaulted
@@ -256,24 +296,22 @@ fun BillsScreen(
     var paying by remember { mutableStateOf<UpcomingItem?>(null) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { vm.refresh() }
-    val spacing = LocalSpacing.current
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        item {
-            ScreenTitle(stringResource(R.string.bills_title))
-            Button(onClick = { adding = true }) { Text(stringResource(R.string.bill_add)) }
-            NotificationPermissionRow()
-            if (!state.loading &&
-                state.items.isEmpty()
-            ) {
-                Text(stringResource(R.string.bill_empty), style = MaterialTheme.typography.bodyMedium)
-            }
+    ListScreen(stringResource(R.string.bill_add), { adding = true }) {
+        item { NotificationPermissionRow() }
+        if (!state.loading && state.items.isEmpty()) {
+            item { EmptyCard(AppIcons.Event, stringResource(R.string.bill_empty_title), stringResource(R.string.bill_empty_message)) }
         }
         items(state.items, key = { it.occurrenceId }) { item ->
             BillRow(item, onPay = { paying = item }, onSkip = { scope.launch { vm.skip(item) } })
         }
         if (state.costs.isNotEmpty()) {
             item { SectionTitle(stringResource(R.string.bill_yearly_title)) }
-            items(state.costs, key = { it.ruleId }) { c -> LabeledRow(c.name) { AmountText(-c.nextTwelveMonths) } }
+            item {
+                CardList(state.costs) { c ->
+                    val income = c.kind == RuleKind.EXPECTED_INCOME
+                    ListRow(c.name) { AmountText(if (income) c.nextTwelveMonths else -c.nextTwelveMonths) }
+                }
+            }
         }
     }
     if (adding) AddBillDialog(vm, state, onDismiss = { adding = false })
@@ -290,10 +328,18 @@ private fun NotificationPermissionRow() {
                 BillReminders.canNotify(context)
         }
     if (!granted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        Text(stringResource(R.string.bill_notifications_explain), style = MaterialTheme.typography.bodySmall)
-        OutlinedButton(onClick = {
-            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }) { Text(stringResource(R.string.bill_notifications_allow)) }
+        val spacing = LocalSpacing.current
+        SurfaceCard {
+            Row(Modifier.padding(spacing.md), horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
+                IconDisc(AppIcons.Event, MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.tertiaryContainer)
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    Text(stringResource(R.string.bill_notifications_explain), style = MaterialTheme.typography.bodyMedium)
+                    OutlinedButton(onClick = {
+                        launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }) { Text(stringResource(R.string.bill_notifications_allow)) }
+                }
+            }
+        }
     }
 }
 
@@ -304,16 +350,23 @@ private fun BillRow(
     onSkip: () -> Unit,
 ) {
     val spacing = LocalSpacing.current
+    val income = item.kind == RuleKind.EXPECTED_INCOME
+    val fc = LocalFinanceColors.current
     SurfaceCard {
-        Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-            LabeledRow(item.name) { AmountText(if (item.kind == RuleKind.EXPECTED_INCOME) item.amount else -item.amount) }
+        Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             val estimate = if (item.amountIsEstimate) " · " + stringResource(R.string.bill_estimate) else ""
-            Text(
-                item.dueDate.toString() + " · " + stringResource(stateLabel(item.state)) + estimate,
-                style = MaterialTheme.typography.bodySmall,
-            )
-            if (item.state != OccurrenceState.PAID && item.state != OccurrenceState.SKIPPED) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            CardHeader(
+                if (income) AppIcons.TrendingUp else AppIcons.Event,
+                if (income) fc.income else MaterialTheme.colorScheme.tertiary,
+                if (income) fc.incomeSoft else MaterialTheme.colorScheme.tertiaryContainer,
+                item.name,
+                item.dueDate.display() + estimate,
+            ) { AmountText(if (income) item.amount else -item.amount) }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                BillStatePill(item.state)
+                Spacer(Modifier.weight(1f))
+                if (item.state != OccurrenceState.PAID && item.state != OccurrenceState.SKIPPED) {
+                    TextButton(onClick = onSkip) { Text(stringResource(R.string.bill_skip)) }
                     OutlinedButton(onClick = onPay) {
                         Text(
                             stringResource(
@@ -327,11 +380,24 @@ private fun BillRow(
                             ),
                         )
                     }
-                    TextButton(onClick = onSkip) { Text(stringResource(R.string.bill_skip)) }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun BillStatePill(state: OccurrenceState) {
+    val fc = LocalFinanceColors.current
+    val cs = MaterialTheme.colorScheme
+    val (bg, fg) =
+        when (state) {
+            OccurrenceState.OVERDUE -> fc.expenseSoft to fc.expense
+            OccurrenceState.DUE_TODAY -> cs.tertiaryContainer to cs.onTertiaryContainer
+            OccurrenceState.PAID -> fc.incomeSoft to fc.income
+            OccurrenceState.UPCOMING, OccurrenceState.SKIPPED -> cs.surfaceVariant to cs.onSurfaceVariant
+        }
+    StatusPill(stringResource(stateLabel(state)), bg, fg)
 }
 
 private fun stateLabel(s: OccurrenceState): Int =
@@ -415,27 +481,39 @@ fun AssetsScreen(vm: AssetsViewModel) {
     var valuing by remember { mutableStateOf<AssetSummary?>(null) }
     LaunchedEffect(Unit) { vm.refresh() }
     val spacing = LocalSpacing.current
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        item {
-            ScreenTitle(stringResource(R.string.assets_title))
-            Text(stringResource(R.string.assets_explain), style = MaterialTheme.typography.bodySmall)
-            Button(onClick = { adding = true }) { Text(stringResource(R.string.asset_add)) }
+    val shown = state.assets.filter { !it.archived }
+    ListScreen(stringResource(R.string.asset_add), { adding = true }) {
+        if (!state.loading && shown.isEmpty()) {
+            item { EmptyCard(AppIcons.Bank, stringResource(R.string.asset_empty_title), stringResource(R.string.assets_explain)) }
+        } else {
+            item {
+                Text(
+                    stringResource(R.string.assets_explain),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
-        items(state.assets.filter { !it.archived }, key = { it.id }) { a ->
+        items(shown, key = { it.id }) { a ->
             val value = a.latestValue
-            if (value != null) {
+            val asOf = a.latestAsOf
+            if (value != null && asOf != null) {
                 FigureCard(
                     a.name,
                     value,
-                    stringResource(R.string.asset_value_on, a.latestAsOf.toString()),
-                    icon = ph.financewallet.app.ui.theme.AppIcons.Bank,
+                    stringResource(R.string.asset_value_on, asOf.display()),
+                    icon = AppIcons.Bank,
                     onClick = { valuing = a },
                 )
             } else {
                 SurfaceCard(onClick = { valuing = a }) {
                     Column(Modifier.padding(spacing.md)) {
-                        Text(a.name)
-                        Text(stringResource(R.string.asset_no_value), style = MaterialTheme.typography.bodySmall)
+                        Text(a.name, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            stringResource(R.string.asset_no_value),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }

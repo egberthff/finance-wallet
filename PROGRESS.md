@@ -69,7 +69,7 @@ are still **Not written**.
 | 6 | On device: launch, lock, FLAG_SECURE, DB unreadable without key (AC-SEC-1/2) | **Not executed** | No Android device connected yet (Q-16) |
 | 7 | Spikes recorded (SQLCipher perf; APK impact of fastexcel/PdfBox/BouncyCastle) | **Partially met** | [docs/spikes/apk-size.md](docs/spikes/apk-size.md): baseline release 9.36 MB; BouncyCastle +31 KB; PdfBox +6.0 MB; fastexcel fails R8 → in-house XLSX reader. **SQLCipher perf needs device** |
 
-Test totals (latest full `check`): **287 executed, 287 passed, 0 failed, 0 skipped** (`:domain` 117, `:importers` 20, `:data` 104, `:app` 46), 2026-11-07 on Temurin 21.
+Test totals (latest full `check`): **291 executed, 291 passed, 0 failed, 0 skipped** (`:domain` 117, `:importers` 20, `:data` 104, `:app` 50), 2026-11-07 on Temurin 21.
 
 > **Correction (2026-11-05).** Earlier reports in this file (59 and 60 tests, "properties passed") were wrong for 4 property
 > tests: `AllocationTest` ×2, `MoneyParserFormatterTest` ×1, and `PeriodCalculatorTest` (fixed-length). They were written as

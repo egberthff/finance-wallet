@@ -7,19 +7,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -33,7 +27,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -46,13 +42,19 @@ import kotlinx.coroutines.withContext
 import ph.financewallet.app.R
 import ph.financewallet.app.ui.accounts.CheckRow
 import ph.financewallet.app.ui.common.AmountText
+import ph.financewallet.app.ui.common.CardList
 import ph.financewallet.app.ui.common.ErrorLine
+import ph.financewallet.app.ui.common.IconDisc
 import ph.financewallet.app.ui.common.LabeledRow
-import ph.financewallet.app.ui.common.ScreenTitle
+import ph.financewallet.app.ui.common.ListRow
+import ph.financewallet.app.ui.common.ListScreen
 import ph.financewallet.app.ui.common.SectionTitle
+import ph.financewallet.app.ui.common.ShareBar
 import ph.financewallet.app.ui.common.SurfaceCard
 import ph.financewallet.app.ui.common.display
 import ph.financewallet.app.ui.components.LoadingState
+import ph.financewallet.app.ui.theme.AppIcons
+import ph.financewallet.app.ui.theme.LocalFinanceColors
 import ph.financewallet.app.ui.theme.LocalSpacing
 import ph.financewallet.data.backup.BackupSummary
 import ph.financewallet.data.backup.PassphrasePolicy
@@ -85,20 +87,33 @@ fun BackupScreen(vm: BackupViewModel) {
         LoadingState(stringResource(R.string.loading))
         return
     }
-    val spacing = LocalSpacing.current
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        item { ScreenTitle(stringResource(R.string.backup_title)) }
-        item { Text(stringResource(R.string.backup_explain), style = MaterialTheme.typography.bodySmall) }
+    ListScreen {
+        item { MutedText(stringResource(R.string.backup_explain)) }
         item {
             val last = state.lastBackupAt
-            Text(
-                if (last == null) stringResource(R.string.backup_never) else stringResource(R.string.backup_last, formatMillis(last)),
-                style = MaterialTheme.typography.labelLarge,
-            )
+            SurfaceCard {
+                ListRow(
+                    if (last == null) stringResource(R.string.backup_never) else stringResource(R.string.backup_last, formatMillis(last)),
+                    leading = {
+                        val fc = LocalFinanceColors.current
+                        if (last == null) {
+                            IconDisc(AppIcons.Warning, MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.tertiaryContainer)
+                        } else {
+                            IconDisc(AppIcons.Save, fc.income, fc.incomeSoft)
+                        }
+                    },
+                )
+            }
         }
         item { CreateSection(vm, state) }
         item { RestoreSection(vm, state) }
     }
+}
+
+/** Explanatory paragraph under a heading: secondary colour so the figures and actions stay prominent. */
+@Composable
+private fun MutedText(text: String) {
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable
@@ -172,11 +187,19 @@ private fun StrengthMeter(strength: Int) {
             R.string.backup_strength_3,
             R.string.backup_strength_4,
         )
-    LinearProgressIndicator(
-        progress = { strength.toFloat() / PassphrasePolicy.MAX_STRENGTH },
-        modifier = Modifier.fillMaxWidth(),
+    val fc = LocalFinanceColors.current
+    val color =
+        when {
+            strength >= PassphrasePolicy.MAX_STRENGTH - 1 -> fc.income
+            strength >= 2 -> fc.warning
+            else -> fc.expense
+        }
+    ShareBar(strength.toFloat() / PassphrasePolicy.MAX_STRENGTH, color)
+    Text(
+        stringResource(labels[strength.coerceIn(0, labels.lastIndex)]),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    Text(stringResource(labels[strength.coerceIn(0, labels.lastIndex)]), style = MaterialTheme.typography.bodySmall)
 }
 
 @Composable
@@ -245,15 +268,20 @@ private fun ConfirmRestore(
                 Text(stringResource(R.string.backup_summary_made, formatMillis(summary.createdAt)))
                 Text(pluralStringResource(R.plurals.backup_summary_accounts, summary.accounts, summary.accounts))
                 Text(pluralStringResource(R.plurals.backup_summary_txns, summary.transactions, summary.transactions))
-                if (summary.firstTxnDate != null && summary.lastTxnDate != null) {
-                    Text(stringResource(R.string.backup_summary_range, summary.firstTxnDate.toString(), summary.lastTxnDate.toString()))
+                val first = summary.firstTxnDate
+                val last = summary.lastTxnDate
+                if (first != null && last != null) {
+                    Text(stringResource(R.string.backup_summary_range, first.display(), last.display()))
                 }
                 Text(stringResource(R.string.backup_confirm_warning), color = MaterialTheme.colorScheme.error)
             }
         },
         confirmButton = {
             TextButton(onClick = onConfirm, enabled = !busy) {
-                Text(stringResource(if (busy) R.string.backup_working else R.string.backup_replace_all))
+                Text(
+                    stringResource(if (busy) R.string.backup_working else R.string.backup_replace_all),
+                    color = if (busy) Color.Unspecified else MaterialTheme.colorScheme.error,
+                )
             }
         },
         dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.action_cancel)) } },
@@ -283,33 +311,30 @@ fun PrivacyScreen(
                 if (exportFailed) deletePartial(context, uri)
             }
         }
-    val spacing = LocalSpacing.current
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = spacing.md)
-            .padding(bottom = spacing.lg),
-        verticalArrangement = Arrangement.spacedBy(spacing.sm),
-    ) {
-        ScreenTitle(stringResource(R.string.privacy_title))
-        Text(stringResource(R.string.privacy_explain), style = MaterialTheme.typography.bodySmall)
-        SectionTitle(stringResource(R.string.privacy_export))
-        Text(stringResource(R.string.privacy_export_explain), style = MaterialTheme.typography.bodySmall)
-        OutlinedButton(
-            onClick = { exportWarning = true },
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text(stringResource(R.string.privacy_export)) }
-        exportResult?.let { Text(pluralStringResource(R.plurals.privacy_export_done, it, it)) }
-        if (exportFailed) ErrorLine(R.string.backup_err_write)
-        CrashReportsSection(crashLog)
-        SectionTitle(stringResource(R.string.privacy_delete))
-        Text(stringResource(R.string.privacy_delete_explain), style = MaterialTheme.typography.bodySmall)
-        Button(
-            onClick = { deleting = true },
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text(stringResource(R.string.privacy_delete)) }
+    ListScreen {
+        item { MutedText(stringResource(R.string.privacy_explain)) }
+        item {
+            SectionCard(AppIcons.Upload, stringResource(R.string.privacy_export)) {
+                MutedText(stringResource(R.string.privacy_export_explain))
+                OutlinedButton(
+                    onClick = { exportWarning = true },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(stringResource(R.string.privacy_export)) }
+                exportResult?.let { Text(pluralStringResource(R.plurals.privacy_export_done, it, it)) }
+                if (exportFailed) ErrorLine(R.string.backup_err_write)
+            }
+        }
+        item { CrashReportsSection(crashLog) }
+        item {
+            SectionCard(AppIcons.Warning, stringResource(R.string.privacy_delete), danger = true) {
+                MutedText(stringResource(R.string.privacy_delete_explain))
+                Button(
+                    onClick = { deleting = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(stringResource(R.string.privacy_delete)) }
+            }
+        }
     }
     if (exportWarning) {
         AlertDialog(
@@ -348,24 +373,50 @@ private fun CrashReportsSection(crashLog: ph.financewallet.app.diagnostics.Crash
                 failed = ok == null
             }
         }
-    SectionTitle(stringResource(R.string.crash_title))
-    Text(stringResource(R.string.crash_explain), style = MaterialTheme.typography.bodySmall)
-    Text(
-        if (count == 0) stringResource(R.string.crash_none) else pluralStringResource(R.plurals.crash_count, count, count),
-        style = MaterialTheme.typography.bodyMedium,
-    )
-    if (count > 0) {
-        OutlinedButton(
-            onClick = { picker.launch("finance-manager-crash-reports-${LocalDate.now(MANILA)}.txt") },
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text(stringResource(R.string.crash_save)) }
-        TextButton(onClick = {
-            crashLog.clear()
-            count = 0
-        }) { Text(stringResource(R.string.crash_delete)) }
+    SectionCard(AppIcons.Shield, stringResource(R.string.crash_title)) {
+        MutedText(stringResource(R.string.crash_explain))
+        Text(
+            if (count == 0) stringResource(R.string.crash_none) else pluralStringResource(R.plurals.crash_count, count, count),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        if (count > 0) {
+            OutlinedButton(
+                onClick = { picker.launch("finance-manager-crash-reports-${LocalDate.now(MANILA)}.txt") },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(stringResource(R.string.crash_save)) }
+            TextButton(onClick = {
+                crashLog.clear()
+                count = 0
+            }) { Text(stringResource(R.string.crash_delete)) }
+        }
+        if (saved) Text(stringResource(R.string.crash_saved), style = MaterialTheme.typography.bodySmall)
+        if (failed) ErrorLine(R.string.backup_err_write)
     }
-    if (saved) Text(stringResource(R.string.crash_saved), style = MaterialTheme.typography.bodySmall)
-    if (failed) ErrorLine(R.string.backup_err_write)
+}
+
+/** A titled card on the privacy screen: icon, heading, then its explanation and actions. */
+@Composable
+private fun SectionCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    danger: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    val spacing = LocalSpacing.current
+    val fc = LocalFinanceColors.current
+    SurfaceCard {
+        Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
+                if (danger) {
+                    IconDisc(icon, fc.expense, fc.expenseSoft)
+                } else {
+                    IconDisc(icon, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
+                }
+                Text(title, style = MaterialTheme.typography.titleMedium)
+            }
+            content()
+        }
+    }
 }
 
 /** Two steps: an explicit acknowledgement, then the app PIN (failures count towards the lockout). */
@@ -411,7 +462,13 @@ private fun DeleteAllDialog(
                     }
                 },
                 enabled = acknowledged && pin.length == PIN_LENGTH && !busy,
-            ) { Text(stringResource(R.string.privacy_delete_confirm)) }
+            ) {
+                val ready = acknowledged && pin.length == PIN_LENGTH && !busy
+                Text(
+                    stringResource(R.string.privacy_delete_confirm),
+                    color = if (ready) MaterialTheme.colorScheme.error else Color.Unspecified,
+                )
+            }
         },
         dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.action_cancel)) } },
     )
@@ -429,19 +486,18 @@ fun InsightsScreen(vm: InsightsViewModel) {
         LoadingState(stringResource(R.string.loading))
         return
     }
-    val spacing = LocalSpacing.current
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        item { ScreenTitle(stringResource(R.string.insights_title)) }
-        item {
-            Text(
-                stringResource(R.string.insights_explain, r.period.start.toString(), r.period.endInclusive.toString()),
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
+    ListScreen {
+        item { MutedText(stringResource(R.string.insights_explain, r.period.start.display(), r.period.endInclusive.display())) }
         item { FlowCard(r) }
         insightLists(r)
         item { EstimateCard(r) }
     }
+}
+
+/** A short "nothing found" line in its own card, so every insight section has the same shape. */
+@Composable
+private fun NoneCard(text: String) {
+    SurfaceCard { Text(text, Modifier.padding(LocalSpacing.current.md), color = MaterialTheme.colorScheme.onSurfaceVariant) }
 }
 
 @Composable
@@ -453,7 +509,11 @@ private fun FlowCard(r: InsightsReport) {
             LabeledRow(stringResource(R.string.home_spending)) { AmountText(-r.flow.spending) }
             LabeledRow(stringResource(R.string.insights_moved_savings)) { AmountText(-r.flow.movedToSavings) }
             LabeledRow(stringResource(R.string.insights_left_over)) { AmountText(r.flow.leftOver) }
-            Text(stringResource(R.string.insights_flow_caption), style = MaterialTheme.typography.bodySmall)
+            Text(
+                stringResource(R.string.insights_flow_caption),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -461,30 +521,49 @@ private fun FlowCard(r: InsightsReport) {
 private fun androidx.compose.foundation.lazy.LazyListScope.insightLists(r: InsightsReport) {
     val name: (String) -> String = { id -> r.categoryNames[id] ?: id }
     item { SectionTitle(stringResource(R.string.insights_top)) }
-    if (r.topCategories.isEmpty()) item { Text(stringResource(R.string.insights_none_spending)) }
-    items(r.topCategories, key = { "t" + it.first }) { (id, total) -> LabeledRow(name(id)) { AmountText(-total) } }
+    item {
+        if (r.topCategories.isEmpty()) {
+            NoneCard(stringResource(R.string.insights_none_spending))
+        } else {
+            CardList(r.topCategories) { (id, total) -> ListRow(name(id)) { AmountText(-total) } }
+        }
+    }
     item {
         SectionTitle(
-            stringResource(R.string.insights_increases, r.previousPeriod.start.toString(), r.previousPeriod.endInclusive.toString()),
+            stringResource(R.string.insights_increases, r.previousPeriod.start.display(), r.previousPeriod.endInclusive.display()),
         )
     }
-    if (r.increases.isEmpty()) item { Text(stringResource(R.string.insights_none_increase)) }
-    items(r.increases, key = { "c" + it.categoryId }) { c ->
-        LabeledRow(name(c.categoryId)) {
-            Text(stringResource(R.string.insights_increase_line, c.previous.display(), c.current.display()))
+    item {
+        if (r.increases.isEmpty()) {
+            NoneCard(stringResource(R.string.insights_none_increase))
+        } else {
+            CardList(r.increases) { c ->
+                ListRow(
+                    name(c.categoryId),
+                    subtitle = stringResource(R.string.insights_increase_line, c.previous.display(), c.current.display()),
+                )
+            }
         }
     }
     item { SectionTitle(stringResource(R.string.insights_unusual)) }
-    if (r.unusual.isEmpty()) item { Text(stringResource(R.string.insights_none_unusual)) }
-    items(r.unusual, key = { "u" + it.expense.txnId }) { u ->
-        LabeledRow("${name(u.expense.categoryId)} · ${u.expense.date}") {
-            Text(stringResource(R.string.insights_unusual_line, u.expense.amount.display(), u.typical.display()))
+    item {
+        if (r.unusual.isEmpty()) {
+            NoneCard(stringResource(R.string.insights_none_unusual))
+        } else {
+            CardList(r.unusual) { u ->
+                ListRow(
+                    name(u.expense.categoryId),
+                    subtitle =
+                        u.expense.date.display() + " · " +
+                            stringResource(R.string.insights_unusual_line, u.expense.amount.display(), u.typical.display()),
+                )
+            }
         }
     }
     item { SectionTitle(stringResource(R.string.insights_bills)) }
     item {
         val b = r.bills
-        Text(
+        NoneCard(
             if (b.shortfall.isZero) {
                 stringResource(R.string.insights_bills_covered, b.dueSoon.display(), b.freeMoney.display())
             } else {

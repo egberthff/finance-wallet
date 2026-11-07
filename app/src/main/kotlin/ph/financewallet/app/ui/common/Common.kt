@@ -133,6 +133,17 @@ fun LabeledRow(
     }
 }
 
+/** Small label above a group of choices in a form (account, category). */
+@Composable
+fun FieldLabel(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = LocalSpacing.current.xs),
+    )
+}
+
 @Composable
 fun ErrorLine(
     @StringRes message: Int?,

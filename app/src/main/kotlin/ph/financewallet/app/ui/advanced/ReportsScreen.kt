@@ -8,14 +8,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -27,7 +27,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalContext
@@ -35,6 +38,7 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
@@ -42,14 +46,20 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ph.financewallet.app.R
 import ph.financewallet.app.ui.common.AmountText
+import ph.financewallet.app.ui.common.CardList
 import ph.financewallet.app.ui.common.ChoiceChips
 import ph.financewallet.app.ui.common.FigureCard
 import ph.financewallet.app.ui.common.LabeledRow
-import ph.financewallet.app.ui.common.ScreenTitle
+import ph.financewallet.app.ui.common.ListRow
+import ph.financewallet.app.ui.common.ListScreen
 import ph.financewallet.app.ui.common.SectionTitle
+import ph.financewallet.app.ui.common.ShareBar
 import ph.financewallet.app.ui.common.SurfaceCard
+import ph.financewallet.app.ui.common.dateRange
 import ph.financewallet.app.ui.common.display
+import ph.financewallet.app.ui.common.monthShort
 import ph.financewallet.app.ui.components.LoadingState
+import ph.financewallet.app.ui.theme.AppIcons
 import ph.financewallet.app.ui.theme.LocalFinanceColors
 import ph.financewallet.app.ui.theme.LocalSpacing
 import ph.financewallet.data.advanced.CategoryReportLine
@@ -86,48 +96,87 @@ private fun ReportsContent(
     onExport: () -> Unit,
     exportResult: String?,
 ) {
-    val spacing = LocalSpacing.current
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+    val fc = LocalFinanceColors.current
+    ListScreen {
         item { RangeHeader(vm, state) }
         item { IncomeExpenseCard(state) }
-        item { SectionTitle(stringResource(R.string.reports_spending_by_category)) }
-        items(state.spending, key = { "s" + it.categoryId }) { CategoryRow(it, negative = true, onClick = { vm.drillDown(it) }) }
-        item { SectionTitle(stringResource(R.string.reports_income_by_category)) }
-        items(state.income, key = { "i" + it.categoryId }) { CategoryRow(it, negative = false, onClick = { vm.drillDown(it) }) }
-        item { SectionTitle(stringResource(R.string.reports_by_account)) }
-        items(state.byAccount, key = { "a" + it.name }) { LabeledRow(it.name) { AmountText(-it.amount) } }
+        if (state.spending.isNotEmpty()) {
+            item { SectionTitle(stringResource(R.string.reports_spending_by_category)) }
+            item { CategoryCard(state.spending, negative = true, color = fc.expense, onClick = vm::drillDown) }
+        }
+        if (state.income.isNotEmpty()) {
+            item { SectionTitle(stringResource(R.string.reports_income_by_category)) }
+            item { CategoryCard(state.income, negative = false, color = fc.income, onClick = vm::drillDown) }
+        }
+        if (state.byAccount.isNotEmpty()) {
+            item { SectionTitle(stringResource(R.string.reports_by_account)) }
+            item { CardList(state.byAccount) { ListRow(it.name) { AmountText(-it.amount) } } }
+        }
         state.netWorth?.let { nw -> item { NetWorthSection(nw, state.netWorthHistory) } }
         if (state.recurring.isNotEmpty()) {
             item { SectionTitle(stringResource(R.string.bill_yearly_title)) }
-            items(state.recurring, key = { "r" + it.ruleId }) { c ->
-                val income = c.kind == ph.financewallet.data.advanced.RuleKind.EXPECTED_INCOME
-                LabeledRow(c.name) { AmountText(if (income) c.nextTwelveMonths else -c.nextTwelveMonths) }
+            item {
+                CardList(state.recurring) { c ->
+                    val income = c.kind == ph.financewallet.data.advanced.RuleKind.EXPECTED_INCOME
+                    ListRow(c.name) { AmountText(if (income) c.nextTwelveMonths else -c.nextTwelveMonths) }
+                }
             }
         }
         item {
-            OutlinedButton(onClick = onExport, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.reports_export)) }
-            exportResult?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-            Text(stringResource(R.string.reports_basis_note), style = MaterialTheme.typography.bodySmall)
+            Column(verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
+                OutlinedButton(onClick = onExport, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.reports_export)) }
+                exportResult?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                Text(
+                    stringResource(R.string.reports_basis_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
 
+/** Week / month / quarter / year, then the period itself with arrows to step through earlier and later ones. */
 @Composable
 private fun RangeHeader(
     vm: ReportsViewModel,
     state: ReportsState,
 ) {
     val range = checkNotNull(state.range)
-    val spacing = LocalSpacing.current
-    ScreenTitle(stringResource(R.string.reports_title))
-    ChoiceChips(RangeKind.entries.toList(), state.kind, { stringResource(rangeLabel(it)) }, vm::select)
-    Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        TextButton(onClick = { vm.shift(-1) }) { Text(stringResource(R.string.reports_previous)) }
-        Text(
-            stringResource(R.string.budget_period, range.start.toString(), range.endInclusive.toString()),
-            Modifier.padding(top = spacing.sm),
-        )
-        TextButton(onClick = { vm.shift(1) }) { Text(stringResource(R.string.reports_next)) }
+    Column(verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
+        ChoiceChips(RangeKind.entries.toList(), state.kind, { stringResource(rangeLabel(it)) }, vm::select)
+        SurfaceCard {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { vm.shift(-1) }) {
+                    Icon(AppIcons.ChevronRight, stringResource(R.string.reports_earlier), Modifier.rotate(HALF_TURN))
+                }
+                Text(
+                    dateRange(range.start, range.endInclusive),
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = { vm.shift(1) }) { Icon(AppIcons.ChevronRight, stringResource(R.string.reports_later)) }
+            }
+        }
+    }
+}
+
+private const val HALF_TURN = 180f
+
+/** Category totals with a bar for each one's share of the largest; tap a category to see its transactions. */
+@Composable
+private fun CategoryCard(
+    lines: List<CategoryReportLine>,
+    negative: Boolean,
+    color: androidx.compose.ui.graphics.Color,
+    onClick: (CategoryReportLine) -> Unit,
+) {
+    val largest = lines.maxOf { kotlin.math.abs(it.total.minor) }.coerceAtLeast(1L)
+    CardList(lines) { line ->
+        // Display-only scaling of integer amounts to a bar length; no money arithmetic happens here.
+        val share = (kotlin.math.abs(line.total.minor).toDouble() / largest).toFloat()
+        CategoryRow(line, negative, share, color, onClick = { onClick(line) })
     }
 }
 
@@ -168,13 +217,31 @@ private fun IncomeExpenseCard(state: ReportsState) {
 private fun CategoryRow(
     line: CategoryReportLine,
     negative: Boolean,
+    share: Float,
+    color: androidx.compose.ui.graphics.Color,
     onClick: () -> Unit,
 ) {
+    val spacing = LocalSpacing.current
     val name = line.systemKey?.let { stringResource(systemCategoryLabel(it)) } ?: line.name
-    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = LocalSpacing.current.xs)) {
-        LabeledRow(name) { AmountText(if (negative) -line.total else line.total) }
+    Column(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = spacing.md, vertical = spacing.sm + spacing.xs),
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            AmountText(if (negative) -line.total else line.total)
+        }
+        ShareBar(share, color)
         line.children.forEach { c ->
-            Text("   ${c.name}: ${c.amount.display()}", style = MaterialTheme.typography.bodySmall)
+            Row(Modifier.padding(start = spacing.md)) {
+                Text(
+                    c.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(c.amount.display(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }
@@ -187,35 +254,62 @@ private fun systemCategoryLabel(key: String): Int =
         else -> R.string.category_uncategorized
     }
 
-/** Month-end net worth as bars. Each bar also has a text description for screen readers (UX-04). */
+/**
+ * Month-end net worth as bars, from the first month with any records (leading empty months are left out so one month
+ * of data does not sit at the edge of a blank chart). Each bar also has a text description for screen readers (UX-04).
+ */
 @Composable
-private fun NetWorthChart(points: List<Pair<LocalDate, Money>>) {
+private fun NetWorthChart(history: List<Pair<LocalDate, Money>>) {
+    val points = history.dropWhile { it.second.isZero }
     if (points.isEmpty()) return
     val colors = LocalFinanceColors.current
+    val spacing = LocalSpacing.current
     val maxAbs = points.maxOf { kotlin.math.abs(it.second.minor) }.coerceAtLeast(1L)
-    val description = points.joinToString { "${it.first}: ${it.second.display()}" }
-    Canvas(Modifier.fillMaxWidth().height(CHART_HEIGHT.dp).semantics { contentDescription = description }) {
-        val slot = size.width / points.size
-        val baseline = size.height / 2
-        points.forEachIndexed { i, (_, value) ->
-            // Display-only scaling of integer amounts to pixels; no money arithmetic happens here.
-            val h = (kotlin.math.abs(value.minor).toDouble() / maxAbs * baseline).toFloat()
-            val top = if (value.isNegative) baseline else baseline - h
-            drawRect(
-                color = if (value.isNegative) colors.expense else colors.income,
-                topLeft = Offset(i * slot + slot * BAR_GAP, top),
-                size = Size(slot * (1 - 2 * BAR_GAP), h),
+    val hasNegative = points.any { it.second.isNegative }
+    val description = points.joinToString { "${it.first.display()}: ${it.second.display()}" }
+    SurfaceCard {
+        Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            Canvas(Modifier.fillMaxWidth().height(CHART_HEIGHT.dp).semantics { contentDescription = description }) {
+                val slot = size.width / points.size
+                val baseline = if (hasNegative) size.height / 2 else size.height
+                val barWidth = (slot * (1 - 2 * BAR_GAP)).coerceAtMost(MAX_BAR.dp.toPx())
+                points.forEachIndexed { i, (_, value) ->
+                    // Display-only scaling of integer amounts to pixels; no money arithmetic happens here.
+                    val h = (kotlin.math.abs(value.minor).toDouble() / maxAbs * baseline).toFloat()
+                    val top = if (value.isNegative) baseline else baseline - h
+                    drawRoundRect(
+                        color = if (value.isNegative) colors.expense else colors.income,
+                        topLeft = Offset(i * slot + (slot - barWidth) / 2, top),
+                        size = Size(barWidth, h),
+                        cornerRadius = CornerRadius(BAR_RADIUS.dp.toPx()),
+                    )
+                }
+                drawLine(colors.neutral, Offset(0f, baseline), Offset(size.width, baseline))
+            }
+            Row(Modifier.fillMaxWidth()) {
+                points.forEach { (date, _) ->
+                    Text(
+                        date.monthShort(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+            Text(
+                stringResource(R.string.reports_chart_range, points.first().first.display(), points.last().first.display()),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        drawLine(colors.neutral, Offset(0f, baseline), Offset(size.width, baseline))
     }
-    Text(
-        stringResource(R.string.reports_chart_range, points.first().first.toString(), points.last().first.toString()),
-        style = MaterialTheme.typography.bodySmall,
-    )
 }
 
-private const val CHART_HEIGHT = 120
+private const val CHART_HEIGHT = 140
+private const val MAX_BAR = 32
+private const val BAR_RADIUS = 4
 private const val BAR_GAP = 0.15f
 
 @Composable
@@ -273,7 +367,7 @@ private fun DrillDownDialog(
         text = {
             LazyColumn {
                 items(items, key = { it.id }) { t ->
-                    LabeledRow("${t.date} · ${t.description.ifBlank { t.accountName }}") { AmountText(t.amount) }
+                    LabeledRow("${t.date.display()} · ${t.description.ifBlank { t.accountName }}") { AmountText(t.amount) }
                 }
             }
         },

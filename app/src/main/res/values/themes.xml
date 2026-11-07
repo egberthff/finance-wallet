@@ -3,5 +3,8 @@
     <!-- Window-level theme only; all UI colors come from the Compose design tokens (ui/theme). -->
     <style name="Theme.FinanceWallet" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/window_background</item>
+        <!-- Dark status-bar icons on the light background during launch, before Compose sets edge-to-edge. -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 </resources>

@@ -12,6 +12,7 @@ import ph.financewallet.app.ui.common.parseAmount
 import ph.financewallet.data.account.AccountRow
 import ph.financewallet.data.account.ReconciledBalance
 import ph.financewallet.data.ledger.NewAccount
+import ph.financewallet.domain.ledger.AccountClass
 import ph.financewallet.domain.ledger.FinancialAccountType
 import ph.financewallet.domain.money.CurrencyCode
 import ph.financewallet.domain.money.Money
@@ -31,6 +32,10 @@ data class AccountsState(
     val loading: Boolean = true,
     val accounts: List<AccountUi> = emptyList(),
     val archived: List<AccountUi> = emptyList(),
+    /** Active PHP asset accounts (cash, bank, e-wallet, savings): the same figure as Home's "Money in your accounts". */
+    val inAccounts: Money = Money.zero(CurrencyCode.PHP),
+    /** Active PHP liability accounts as a positive amount owed; shown beside [inAccounts], never netted into it. */
+    val owed: Money = Money.zero(CurrencyCode.PHP),
 )
 
 class AccountsViewModel(
@@ -53,14 +58,17 @@ class AccountsViewModel(
             s.accounts.accounts(includeArchived = true).map { row ->
                 AccountUi(row, s.ledger.balance(row.id, today), s.ledger.pendingBalance(row.id), s.accounts.reconciledBalance(row.id))
             }
+        val active = all.filter { it.row.archivedAt == null }
+        val php = CurrencyCode.PHP
+
+        fun total(cls: AccountClass): Money =
+            Money.sum(active.filter { it.row.currency == php.code && it.row.accountClass == cls.name }.map { it.balance }, php)
         return AccountsState(
             loading = false,
-            accounts = all.filter { it.row.archivedAt == null },
-            archived =
-                all.filter {
-                    it.row.archivedAt !=
-                        null
-                },
+            accounts = active,
+            archived = all.filter { it.row.archivedAt != null },
+            inAccounts = total(AccountClass.ASSET),
+            owed = -total(AccountClass.LIABILITY),
         )
     }
 

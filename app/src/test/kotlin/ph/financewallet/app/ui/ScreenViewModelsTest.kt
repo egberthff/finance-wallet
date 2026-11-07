@@ -75,6 +75,9 @@ class ScreenViewModelsTest {
             assertEquals(R.string.err_name_length, vm.create(" ", FinancialAccountType.CASH, ""))
             val state = vm.load()
             assertEquals(mapOf("GCash" to p(150_000), "Card" to p(-25_000)), state.accounts.associate { it.row.name to it.balance })
+            // Summary cards: money in asset accounts and the amount owed are separate figures, never netted.
+            assertEquals(p(150_000), state.inAccounts)
+            assertEquals(p(25_000), state.owed)
             assertNull(vm.reconcile(accountId("GCash"), "1,450", createAdjustment = true, key = "r1"))
             val gcash = vm.load().accounts.first { it.row.name == "GCash" }
             assertEquals(p(145_000), gcash.balance)

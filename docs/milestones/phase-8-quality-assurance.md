@@ -60,8 +60,8 @@ stopped and its partial files removed. The owner tests the release APK on a real
 ## 7. QA report
 | Check | Status | Evidence |
 |---|---|---|
-| JVM/Robolectric suite (domain, importers, data, app) incl. EndToEndJourneyTest | Executed–Passed | `gradlew check`, 2026-11-07: 287 tests (domain 117, importers 20, data 104, app 46), 0 failed, 0 skipped; Lint 0 errors |
-| Release 1.0.0-rc1 (versionCode 2): R8, signed v2, id `ph.financemanager.app`, no network permissions, APK 10.4 MB / AAB 9.7 MB | Executed–Passed | apksigner verify (cert SHA-256 `d418ae50…5e2d`), aapt2 badging |
+| JVM/Robolectric suite (domain, importers, data, app) incl. EndToEndJourneyTest | Executed–Passed | `gradlew check`, 2026-11-07: 291 tests (domain 117, importers 20, data 104, app 50), 0 failed, 0 skipped; Lint 0 errors |
+| Release 1.0.0-rc1 (versionCode 2): R8, signed v2, id `ph.financemanager.app`, no network permissions, APK 10.6 MB / AAB 10.0 MB | Executed–Passed | apksigner verify (cert SHA-256 `d418ae50…5e2d`), aapt2 badging |
 | 16 KB page size (Play rule for Android 15+ targets) | Executed–Passed | `zipalign -c -P 16` OK; `config/release/ElfAlign.java`: every `.so` LOAD segment aligned to 16384 |
 | Dependency audit: 132 release runtime artifacts against OSV | Executed: 0 advisories | api.osv.dev querybatch, 2026-11-06 (dependencies unchanged since) |
 | Checklist A–G on emulator, debug build (Android 13) | Executed–Passed after fixes | see §7.1 |
@@ -102,3 +102,22 @@ Defects found on the emulator and fixed (each with a regression test where the l
 | D6 | **Release only:** typing a backup passphrase crashed the app (`missing common-passwords.txt`): R8 renamed the class that loaded the list by a relative path. The 0.9.0-beta APK had this crash | Absolute resource path; verified on the release build |
 | D7 | PIN keypad buttons had no accessibility labels | Each key has a content description |
 | D8 | Re-tapping the current tab did not return to its first screen; no tab highlighted on sub-screens | Fixed in `AppNavigation` |
+| D9 | Switching tabs and back to More restored its last sub-screen with the **previous** tab highlighted; tapping More again re-opened the sub-screen instead of the More list | The tapped tab becomes the owner at tap time (`AppNavigation`); verified on the emulator |
+
+### 7.2 UI design pass (2026-11-07)
+A screen-by-screen review on the emulator found screens below the standard of the main tabs. Changed:
+- Sub-screens show their title in the top bar (no empty bar above a second heading).
+- Every list screen uses one layout (`ui/common/Layout.kt`): the add action is always the floating button (Debts, Assets,
+  Bills, Categories, Goals no longer have a button at the top), empty states are cards with an icon and an explanation.
+- Dates read "7 Nov 2026" and ranges "5 Nov – 4 Dec 2026" everywhere (`ui/common/Dates.kt`, `DatesTest`); no ISO dates
+  on screen. The entry screen has a date picker instead of a typed YYYY-MM-DD field.
+- Transactions are grouped by day (Today, Yesterday, weekday dates). Accounts shows "Money in your accounts" and "You owe"
+  as two separate figures (`AccountsState`, tested), never netted.
+- Budgets: compact period and "N days left"; each category shows "left" or "over". Goals, Debts and Bills cards have
+  icons and status labels (Due today, Overdue, Paid off).
+- Reports: period stepper with arrows, category bars proportional to the largest, net-worth chart starts at the first
+  month with records and has month labels. Insights and Categories use grouped cards.
+- Backup: the strength bar is coloured by strength (the old bar showed a stray dot when empty); destructive confirm
+  buttons are red; the whole checkbox line is tappable. Status-bar icons are dark during launch in light mode.
+Verified: debug build on Android 13 in light and dark mode (screens and date picker); release build smoke test (tabs,
+Reports, Insights, backup passphrase meter, date picker) with no crash.

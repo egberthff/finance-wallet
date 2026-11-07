@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -22,7 +21,6 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,12 +47,13 @@ import kotlinx.coroutines.launch
 import ph.financewallet.app.AppServices
 import ph.financewallet.app.R
 import ph.financewallet.app.ui.common.AmountText
+import ph.financewallet.app.ui.common.CardList
 import ph.financewallet.app.ui.common.ChoiceChips
 import ph.financewallet.app.ui.common.ErrorLine
 import ph.financewallet.app.ui.common.FigureCard
 import ph.financewallet.app.ui.common.IconDisc
-import ph.financewallet.app.ui.common.LabeledRow
 import ph.financewallet.app.ui.common.ListRow
+import ph.financewallet.app.ui.common.ListScreen
 import ph.financewallet.app.ui.common.NavRow
 import ph.financewallet.app.ui.common.ScreenTitle
 import ph.financewallet.app.ui.common.SectionTitle
@@ -302,12 +301,13 @@ private fun UpcomingBills(
             bills.forEach { b ->
                 ListRow(
                     b.name,
-                    subtitle = b.dueDate.format(ROW_DATE),
+                    subtitle = b.dueDate.display(),
                     leading = { IconDisc(AppIcons.Event, MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.tertiaryContainer) },
                 ) { AmountText(-b.amount) }
             }
-            TextButton(onClick = onBills, modifier = Modifier.padding(start = LocalSpacing.current.sm)) {
-                Text(stringResource(R.string.bills_title), color = fc.neutral)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            ListRow(stringResource(R.string.bills_title), onClick = onBills) {
+                Icon(AppIcons.ChevronRight, contentDescription = null, tint = fc.neutral)
             }
         }
     }
@@ -323,7 +323,7 @@ private fun RecentCard(recent: List<TransactionListItem>) {
                 ListRow(
                     ph.financewallet.app.ui.transactions
                         .txnTitle(t),
-                    subtitle = "${t.date.format(ROW_DATE)} · ${t.accountName}",
+                    subtitle = "${t.date.display()} · ${t.accountName}",
                     leading = { TxnIcon(t.type, t.amount) },
                 ) { TxnAmount(t.type, t.amount) }
             }
@@ -363,7 +363,6 @@ private fun NoticeCard(
 
 private val FAB_CLEARANCE = 96.dp
 private val HEADER_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Locale.ENGLISH)
-private val ROW_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
 
 data class CategoriesState(
     val loading: Boolean = true,
@@ -412,29 +411,60 @@ fun CategoriesScreen(vm: CategoriesViewModel) {
     var error by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(Unit) { vm.refresh() }
     val spacing = LocalSpacing.current
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                ScreenTitle(stringResource(R.string.categories_title))
-                Button(onClick = { adding = true }) { Text(stringResource(R.string.categories_add)) }
-                if (state.categories.isEmpty() && !state.loading) {
-                    Text(stringResource(R.string.categories_seed_explain), style = MaterialTheme.typography.bodySmall)
-                    OutlinedButton(onClick = { scope.launch { error = vm.seed() } }) { Text(stringResource(R.string.categories_seed)) }
+    ListScreen(stringResource(R.string.categories_add), { adding = true }) {
+        if (state.categories.isEmpty() && !state.loading) {
+            item {
+                SurfaceCard {
+                    Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        Text(stringResource(R.string.categories_seed_explain), style = MaterialTheme.typography.bodyMedium)
+                        Button(onClick = { scope.launch { error = vm.seed() } }) { Text(stringResource(R.string.categories_seed)) }
+                    }
                 }
-                ErrorLine(error)
             }
         }
-        val byId = state.categories.associateBy { it.id }
+        if (error != null) item { ErrorLine(error) }
         listOf(AccountClass.INCOME, AccountClass.EXPENSE).forEach { cls ->
-            item { SectionTitle(stringResource(if (cls == AccountClass.INCOME) R.string.kind_income else R.string.kind_expense)) }
-            items(state.categories.filter { it.accountClass == cls.name }, key = { it.id }) { c ->
-                LabeledRow(c.parentId?.let { "  " + byId[it]?.name + " › " + c.name } ?: c.name) {
-                    TextButton(onClick = { scope.launch { error = vm.archive(c.id) } }) { Text(stringResource(R.string.action_archive)) }
-                }
+            val group = ordered(state.categories.filter { it.accountClass == cls.name })
+            if (group.isNotEmpty()) {
+                item { SectionTitle(stringResource(if (cls == AccountClass.INCOME) R.string.kind_income else R.string.kind_expense)) }
+                item { CategoryGroup(group, cls, onArchive = { id -> scope.launch { error = vm.archive(id) } }) }
             }
         }
     }
     if (adding) AddCategoryDialog(vm, state.categories, onDismiss = { adding = false })
+}
+
+/** Top-level categories in their stored order, each followed by its subcategories. */
+private fun ordered(list: List<CategoryRow>): List<CategoryRow> {
+    val children = list.filter { it.parentId != null }.groupBy { it.parentId }
+    val ids = list.map { it.id }.toSet()
+    // A subcategory whose parent is archived (not in the list) still shows, on its own.
+    val roots = list.filter { it.parentId == null || it.parentId !in ids }
+    return roots.flatMap { listOf(it) + children[it.id].orEmpty() }
+}
+
+@Composable
+private fun CategoryGroup(
+    group: List<CategoryRow>,
+    cls: AccountClass,
+    onArchive: (String) -> Unit,
+) {
+    val fc = LocalFinanceColors.current
+    val byId = group.associateBy { it.id }
+    val (tint, disc) = if (cls == AccountClass.INCOME) fc.income to fc.incomeSoft else fc.expense to fc.expenseSoft
+    CardList(group) { c ->
+        val parent = c.parentId?.let { byId[it] }
+        ListRow(
+            c.name,
+            modifier = if (parent != null) Modifier.padding(start = LocalSpacing.current.lg) else Modifier,
+            subtitle = parent?.let { stringResource(R.string.categories_subcategory_of, it.name) },
+            leading = { IconDisc(AppIcons.Label, tint, disc) },
+        ) {
+            TextButton(onClick = { onArchive(c.id) }) {
+                Text(stringResource(R.string.action_archive), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
 }
 
 @Composable
