@@ -16,8 +16,8 @@ android {
         applicationId = "ph.financemanager.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.0.0-rc1"
+        versionCode = 3
+        versionName = "1.0.0"
     }
 
     // Release signing comes from a properties file outside the repository (SEC-02): -Pfm.signing=<path> or the default
