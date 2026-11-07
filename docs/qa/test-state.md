@@ -29,6 +29,16 @@
 - **Emulator API 33, release build (R8):** smoke passed: unlock, add suggested categories, category edit dialog, category
   sheet in Add transaction; no FATAL in logcat. I1 confirmed via uiautomator.
 - **Not run yet:** H3, H4, H6, H7, H10–H12, H14–H16, I2–I4 with TalkBack, the Android 11 emulator, a physical phone.
+- **1.0.1 build (owner request, 2026-11-07):** versionCode 4; adds open/closed budget sections, status labels,
+  Reopen for a period closed early and Restore for an archived budget (checklist H17, passed on API 33 debug).
+  Same certificate, v2-signed, 16 KB aligned, no network permission. Release smoke on API 33: unlock and Budgets tab,
+  no FATAL. Checks still open are the same as for 1.0.0 below.
+
+  | File (`dist/`, git-ignored) | SHA-256 |
+  |---|---|
+  | `FinanceManager-1.0.1.apk` | `6a5f0f4b9da6110d53a35d37911e14ab3241e8f64ccb1bd6fc5ba8a7bbaaefcd` |
+  | `FinanceManager-1.0.1.aab` | `355172b311a2b9ec6ae92c30e91cd1b9f330f80c2a376d2289113598376e19ae` |
+  | `FinanceManager-1.0.1-mapping.txt` | `a4993e43d2f41db4b0c46c96a1c4503a3504149fad26c80fa6f60867a6da6d3d` |
 - **1.0.0 build (owner request, 2026-11-07):** versionCode 3, same signing certificate as rc1, v2-signed, 16 KB aligned,
   no network permission. Built **before** the open checks below were finished, at the owner's instruction.
 
@@ -39,7 +49,7 @@
   | `FinanceManager-1.0.0-mapping.txt` | `c59d8530424a5546eda41124bcb84df4a5b379e01b31c324e6207eec8c8f455c` |
 
   Emulator API 33: upgrade-install over the previous release build kept the data; unlock and Categories work; no FATAL.
-- **Emulator state now:** API 33 has release **1.0.0** (PIN 123456; starter categories added; no accounts). The
+- **Emulator state now:** API 33 has release **1.0.1** (PIN 123456; no data). The
   earlier rc1 release install on it was replaced (it held no data).
 
 ## 2. Not done yet (next run)
