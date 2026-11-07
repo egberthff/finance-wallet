@@ -206,7 +206,7 @@ Listed in recommended implementation order. Each item keeps the ledger rules int
 - [x] Tests: VM rename propagates. Check that `TransactionQueries.page()` returns the new name for old transactions, because names come from a join.
 
 - [ ] Device check of the edit dialog, the add dialog, and reorder mode (including Back while reordering), with TalkBack, on the emulator (Phase 8 rules); record the result in `docs/qa/test-state.md`. *(Partly done 2026-11-07: edit dialog, archive confirmation and Undo passed on the API 33 emulator (debug and release); reorder with Back and TalkBack not yet run. See docs/qa/test-state.md §1a.)*
-- [ ] Commit the C and C2 work. It is uncommitted and sits on `release/1.0.0-rc1`; **owner decision:** does it belong on the release branch or on a `feature/` branch off `main`?
+- [x] Commit the C and C2 work. It is uncommitted and sits on `release/1.0.0-rc1`; **owner decision:** does it belong on the release branch or on a `feature/` branch off `main`? *(Done 2026-11-07: committed with A–J as 8958290 on branch `feature/categories-and-transaction-ux` (branched from `release/1.0.0-rc1`, which is unchanged). Not pushed, not merged.)*
 
 **Expected behaviour:** a rename shows up instantly in history, reports, and budgets with no data rewrite; icons and colours make the lists scannable.
 
