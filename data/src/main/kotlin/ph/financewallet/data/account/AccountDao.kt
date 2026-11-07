@@ -11,6 +11,14 @@ import ph.financewallet.data.db.entity.FinancialAccountEntity
 import ph.financewallet.data.db.entity.LedgerAccountEntity
 import ph.financewallet.data.db.entity.ReconciliationEntity
 
+/** What uses a category (with its subcategories); shown before archiving it. */
+data class CategoryUsage(
+    val budgets: Int,
+    val recurringRules: Int,
+    val categoryRules: Int,
+    val transactions: Int,
+)
+
 /** Category row joined with its ledger account (name, class, archived). */
 data class CategoryRow(
     val id: String,
@@ -109,24 +117,48 @@ interface AccountDao {
     )
     suspend fun categories(includeArchived: Boolean): List<CategoryRow>
 
-    /** Live sibling with the same normalized name (CAT-01: unique among siblings). */
-    @Query(
-        """SELECT COUNT(*) FROM category c JOIN ledger_account a ON a.id = c.ledger_account_id
-           WHERE a.class = :accountClass AND lower(trim(a.name)) = lower(trim(:name)) AND c.ledger_account_id <> :excludingId
-             AND ((:parentId IS NULL AND c.parent_id IS NULL) OR c.parent_id = :parentId)""",
-    )
-    suspend fun siblingsNamed(
-        accountClass: String,
-        parentId: String?,
-        name: String,
-        excludingId: String,
-    ): Int
-
     @Query(
         """SELECT COUNT(*) FROM category c JOIN ledger_account a ON a.id = c.ledger_account_id
            WHERE c.parent_id = :id AND a.archived_at IS NULL""",
     )
     suspend fun liveChildCount(id: String): Int
+
+    /**
+     * What uses a category and its subcategories: lines in live budgets, active or paused recurring rules, enabled
+     * categorization rules, and live transactions.
+     */
+    @Query(
+        """WITH ids AS (SELECT :id AS id UNION SELECT ledger_account_id FROM category WHERE parent_id = :id)
+           SELECT
+             (SELECT COUNT(DISTINCT bc.budget_id) FROM budget_category bc JOIN budget b ON b.id = bc.budget_id
+                WHERE b.archived_at IS NULL AND bc.category_id IN (SELECT id FROM ids)) AS budgets,
+             (SELECT COUNT(*) FROM recurring_rule r
+                WHERE r.status <> 'ENDED' AND r.category_id IN (SELECT id FROM ids)) AS recurringRules,
+             (SELECT COUNT(*) FROM category_rule cr WHERE cr.enabled = 1 AND cr.category_id IN (SELECT id FROM ids)) AS categoryRules,
+             (SELECT COUNT(DISTINCT e.txn_id) FROM entry e JOIN txn t ON t.id = e.txn_id
+                WHERE t.deleted_at IS NULL AND e.ledger_account_id IN (SELECT id FROM ids)) AS transactions""",
+    )
+    suspend fun categoryUsage(id: String): CategoryUsage
+
+    /**
+     * The live categories of [accountClass] used most often by live transactions on or after [fromDate] (most uses
+     * first, then most recent). The date range uses `ix_txn_date`; entries are reached by `ix_entry_account`.
+     */
+    @Query(
+        """SELECT e.ledger_account_id FROM txn t
+           JOIN entry e ON e.txn_id = t.id
+           JOIN ledger_account a ON a.id = e.ledger_account_id
+           JOIN category c ON c.ledger_account_id = a.id
+           WHERE t.txn_date >= :fromDate AND t.deleted_at IS NULL AND a.class = :accountClass AND a.archived_at IS NULL
+           GROUP BY e.ledger_account_id
+           ORDER BY COUNT(*) DESC, MAX(t.txn_date) DESC, e.ledger_account_id
+           LIMIT :limit""",
+    )
+    suspend fun recentCategories(
+        accountClass: String,
+        fromDate: String,
+        limit: Int,
+    ): List<String>
 
     @Query("SELECT COALESCE(MAX(sort_order), -1) FROM category WHERE (:parentId IS NULL AND parent_id IS NULL) OR parent_id = :parentId")
     suspend fun maxSortOrder(parentId: String?): Int

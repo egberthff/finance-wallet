@@ -30,6 +30,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import ph.financewallet.app.AppServices
 import ph.financewallet.app.R
 import ph.financewallet.app.ui.accounts.AccountsScreen
@@ -48,12 +49,14 @@ import ph.financewallet.app.ui.backup.DeleteAllViewModel
 import ph.financewallet.app.ui.backup.InsightsScreen
 import ph.financewallet.app.ui.backup.InsightsViewModel
 import ph.financewallet.app.ui.backup.PrivacyScreen
+import ph.financewallet.app.ui.budgets.BudgetEditScreen
+import ph.financewallet.app.ui.budgets.BudgetEditViewModel
 import ph.financewallet.app.ui.budgets.BudgetsScreen
 import ph.financewallet.app.ui.budgets.BudgetsViewModel
 import ph.financewallet.app.ui.budgets.GoalsScreen
 import ph.financewallet.app.ui.budgets.GoalsViewModel
-import ph.financewallet.app.ui.home.CategoriesScreen
-import ph.financewallet.app.ui.home.CategoriesViewModel
+import ph.financewallet.app.ui.categories.CategoriesScreen
+import ph.financewallet.app.ui.categories.CategoriesViewModel
 import ph.financewallet.app.ui.home.HomeScreen
 import ph.financewallet.app.ui.home.HomeViewModel
 import ph.financewallet.app.ui.home.MoreScreen
@@ -66,11 +69,16 @@ import ph.financewallet.app.ui.imports.RulesViewModel
 import ph.financewallet.app.ui.theme.AppIcons
 import ph.financewallet.app.ui.transactions.EntryScreen
 import ph.financewallet.app.ui.transactions.EntryViewModel
+import ph.financewallet.app.ui.transactions.TransactionDetailScreen
+import ph.financewallet.app.ui.transactions.TransactionDetailViewModel
 import ph.financewallet.app.ui.transactions.TransactionsScreen
 import ph.financewallet.app.ui.transactions.TransactionsViewModel
 
 private const val ENTRY = "entry"
 private const val EDIT = "edit"
+private const val DETAIL = "txn"
+private const val TXNS = "txns"
+private const val BUDGET_EDIT = "budget"
 private const val GOALS = "goals"
 private const val CATEGORIES = "categories"
 private const val DEBTS = "debts"
@@ -153,6 +161,9 @@ private fun subScreenTitle(route: String?): Int? =
     when {
         route == null -> null
         route.startsWith("$EDIT/") -> R.string.txn_edit_title
+        route.startsWith("$DETAIL/") -> R.string.detail_title
+        route.startsWith(TXNS) -> R.string.nav_transactions
+        route.startsWith("$BUDGET_EDIT/") -> R.string.budget_edit
         else -> SUB_SCREEN_TITLES[route]
     }
 
@@ -207,17 +218,26 @@ private fun NavGraphBuilder.topLevelRoutes(
             onAddTransaction = { nav.navigate(ENTRY) },
             onBills = { nav.navigate(BILLS) },
             onBackup = { nav.navigate(BACKUP) },
+            onOpenTransaction = { nav.navigate("$DETAIL/$it") },
         )
     }
     composable(TopLevel.TRANSACTIONS.route) {
         TransactionsScreen(
             viewModel { TransactionsViewModel(services) },
             onAdd = { nav.navigate(ENTRY) },
-            onEdit = { id -> nav.navigate("$EDIT/$id") },
+            onOpen = { id -> nav.navigate("$DETAIL/$id") },
         )
     }
-    composable(TopLevel.BUDGETS.route) { BudgetsScreen(viewModel { BudgetsViewModel(services) }, services::newKey) }
-    composable(TopLevel.ACCOUNTS.route) { AccountsScreen(viewModel { AccountsViewModel(services) }, services::newKey) }
+    composable(TopLevel.BUDGETS.route) {
+        BudgetsScreen(viewModel { BudgetsViewModel(services) }, services::newKey, onEditBudget = { nav.navigate("$BUDGET_EDIT/$it") })
+    }
+    composable(TopLevel.ACCOUNTS.route) {
+        AccountsScreen(
+            viewModel { AccountsViewModel(services) },
+            services::newKey,
+            onShowTransactions = { nav.navigate("$TXNS?account=$it") },
+        )
+    }
     composable(TopLevel.MORE.route) {
         MoreScreen(
             onGoals = { nav.navigate(GOALS) },
@@ -247,7 +267,46 @@ private fun NavGraphBuilder.featureRoutes(
         EntryScreen(viewModel { EntryViewModel(services) }, onDone = { nav.popBackStack() }, editTxnId = id)
     }
     composable(GOALS) { GoalsScreen(viewModel { GoalsViewModel(services) }, services::newKey) }
-    composable(CATEGORIES) { CategoriesScreen(viewModel { CategoriesViewModel(services) }) }
+    composable("$BUDGET_EDIT/{budgetId}") { entry ->
+        val id = checkNotNull(entry.arguments?.getString("budgetId"))
+        BudgetEditScreen(viewModel { BudgetEditViewModel(services, id) }, onClosed = { nav.popBackStack() })
+    }
+    composable("$DETAIL/{txnId}") { entry ->
+        val id = checkNotNull(entry.arguments?.getString("txnId"))
+        TransactionDetailScreen(
+            viewModel { TransactionDetailViewModel(services, id) },
+            onEdit = { nav.navigate("$EDIT/$it") },
+            onOpen = { nav.navigate("$DETAIL/$it") },
+            onDeleted = { nav.popBackStack() },
+        )
+    }
+    // Deep links (H): an account's or a category's transactions, already filtered.
+    composable(
+        "$TXNS?account={account}&category={category}",
+        arguments =
+            listOf(
+                navArgument("account") {
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("category") {
+                    nullable = true
+                    defaultValue = null
+                },
+            ),
+    ) { entry ->
+        val account = entry.arguments?.getString("account")
+        val category = entry.arguments?.getString("category")
+        TransactionsScreen(
+            viewModel { TransactionsViewModel(services, account, category) },
+            onAdd = { nav.navigate(ENTRY) },
+            onOpen = { nav.navigate("$DETAIL/$it") },
+            showTitle = false,
+        )
+    }
+    composable(CATEGORIES) {
+        CategoriesScreen(viewModel { CategoriesViewModel(services) }, onShowTransactions = { nav.navigate("$TXNS?category=$it") })
+    }
     composable(DEBTS) { DebtsScreen(viewModel { DebtsViewModel(services) }, services::newKey) }
     composable(BILLS) { BillsScreen(viewModel { BillsViewModel(services) }, services::newKey) }
     composable(ASSETS) { AssetsScreen(viewModel { AssetsViewModel(services) }) }

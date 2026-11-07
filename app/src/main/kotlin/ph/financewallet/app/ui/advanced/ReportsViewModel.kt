@@ -6,6 +6,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import ph.financewallet.app.AppServices
+import ph.financewallet.app.ui.common.Tables
+import ph.financewallet.app.ui.common.reloadOn
+import ph.financewallet.data.account.CategoryRow
 import ph.financewallet.data.advanced.CategoryReportLine
 import ph.financewallet.data.advanced.NetWorthBreakdown
 import ph.financewallet.data.advanced.RecurringCost
@@ -38,6 +41,8 @@ data class ReportsState(
     val netWorth: NetWorthBreakdown? = null,
     val netWorthHistory: List<Pair<LocalDate, Money>> = emptyList(),
     val recurring: List<RecurringCost> = emptyList(),
+    /** Icon and colour per category id (archived included, since past periods can use them). */
+    val categoryStyles: Map<String, CategoryRow> = emptyMap(),
     /** Transactions behind a tapped category total (RPT-03). */
     val drillDown: Pair<String, List<TransactionListItem>>? = null,
 )
@@ -52,6 +57,10 @@ class ReportsViewModel(
     private val mutable = MutableStateFlow(ReportsState())
     val state: StateFlow<ReportsState> = mutable
     private var anchor: LocalDate = s.ctx.today()
+
+    init {
+        reloadOn(s, *Tables.LEDGER) { refresh() }
+    }
 
     fun select(kind: RangeKind) {
         viewModelScope.launch { mutable.value = load(kind, anchor) }
@@ -95,6 +104,7 @@ class ReportsViewModel(
             netWorth = s.reports.netWorth(nwEnd).firstOrNull { it.currency == php },
             netWorthHistory = s.reports.netWorthHistory(nwEnd.minusMonths(HISTORY_MONTHS).withDayOfMonth(1), nwEnd, php),
             recurring = s.recurring.costs(),
+            categoryStyles = s.categories.categories(includeArchived = true).associateBy { it.id },
         )
     }
 

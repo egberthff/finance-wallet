@@ -1,6 +1,6 @@
 # Known Limitations (1.0.0-rc1)
 
-| Status | v1, 2026-11-06 |
+| Status | v2, 2026-11-07 (after ANALYSIS.md blueprints A–J) |
 |---|---|
 
 ## Scope (by owner decision)
@@ -15,7 +15,16 @@
 - Import from the share sheet (opening a file from another app) is not available; use More → Import a statement.
 - Editing from the UI covers expense, income and transfer; other transaction types (splits, debt payments) are edited
   through their own screens or by deleting and re-entering.
-- Sweeping a closed budget's leftover straight into a goal from the leftover list is not in the UI.
+- Sweeping a closed budget's leftover straight into a goal from the leftover list is not in the UI (a category can be set
+  to sweep its unused money to a goal automatically in Edit budget).
+- **No free-text search in the transaction list.** Filters by account, category and dates are available. Search needs an
+  index decision (FTS4 or a normalized-prefix column, both a schema change); see ANALYSIS.md blueprint H.
+- Record refund on the detail screen covers expenses with one category; for a split expense, record the refund as a new
+  transaction.
+- Editing a bill changes the due day only for monthly bills; other frequencies keep their schedule (end the bill and
+  create a new one to change it).
+- Account edit in the UI covers name, institution and opening balance; credit limit, last 4 digits and the reconcile
+  reminder are service-only.
 - Reports' "Money in" counts opening balances (it equals the change in account balances); this can surprise users in
   the first month.
 - Single currency (PHP) on Home and in reports; accounts in other currencies are not converted.
@@ -32,6 +41,7 @@
 - **Physical phone testing:** all device checks so far ran on emulators (Android 13 and Android 11); USB debugging was
   not available. Vendor-specific behaviour (battery savers delaying reminders, OEM keystores) is unverified.
 - **Android 8–10:** the oldest supported versions (minSdk 26) were not run.
-- **Performance with 50,000+ transactions** (NFR-02/03) is not measured on a device.
+- **Performance with 50,000+ transactions** (NFR-02/03) is not measured on a device. On the JVM, the picker's "Recent"
+  query over 50,000 transactions took 98 ms and uses the date index (EntryPreferencesTest).
 - **Legal review** of the privacy notice and Data Privacy Act obligations is pending (R-07).
 - Google Drive / other cloud providers through the file picker: not tested.

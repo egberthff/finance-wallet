@@ -251,4 +251,196 @@ class AccountAndCategoryTest {
             assertTrue(all.filter { it.parentId != null }.all { child -> all.single { it.id == child.parentId }.parentId == null })
             assertEquals(expected, all.count { it.isDefaultSeed })
         }
+
+    @Test
+    fun `seeded categories get their group colour, and children share it`() =
+        runBlocking<Unit> {
+            categories.seedDefaults().getOrThrow()
+            val all = categories.categories()
+            val food = all.single { it.name == "Food" && it.parentId == null }
+            assertEquals(0xFFE65100L, food.colorArgb)
+            assertTrue(all.filter { it.parentId == food.id }.all { it.colorArgb == food.colorArgb })
+            // A seed made with colours needs no colour offer.
+            assertTrue(categories.suggestedColors().isEmpty())
+        }
+
+    @Test
+    fun `suggested colours apply once, only to seeded categories still in the default colour`() =
+        runBlocking<Unit> {
+            categories.seedDefaults().getOrThrow()
+            // Simulate a seed made before colours existed: every row slate, colour offer not yet made.
+            categories.categories().forEach { row ->
+                val c = checkNotNull(db.ledgerDao().category(row.id))
+                db.accountDao().updateCategory(c.copy(colorArgb = CategoryService.DEFAULT_COLOR))
+            }
+            db.openHelper.writableDatabase.execSQL("DELETE FROM app_meta WHERE `key` = 'seed:category-colors:v1'")
+            val food = categories.categories().single { it.name == "Food" && it.parentId == null }
+            categories.edit(food.id, "Food", food.icon, 0xFF1E88E5L).getOrThrow() // the user's own choice
+            val own = categories.create("Pets", AccountClass.EXPENSE).getOrThrow() // not seeded: never touched
+            val offered = categories.suggestedColors()
+            val seededCount = categories.categories().count { it.isDefaultSeed }
+            assertEquals(seededCount - 1, offered.size)
+
+            assertEquals(seededCount - 1, categories.applySuggestedColors().getOrThrow())
+
+            val after = categories.categories().associateBy { it.id }
+            assertEquals(0xFF1E88E5L, after.getValue(food.id).colorArgb)
+            assertEquals(CategoryService.DEFAULT_COLOR, after.getValue(own).colorArgb)
+            assertEquals(0xFF388E3CL, after.values.single { it.name == "Salary" }.colorArgb)
+            assertTrue(categories.suggestedColors().isEmpty())
+            assertEquals(0, categories.applySuggestedColors().getOrThrow())
+        }
+
+    @Test
+    fun `dismissing the colour offer changes nothing and hides it`() =
+        runBlocking<Unit> {
+            categories.seedDefaults().getOrThrow()
+            categories.categories().forEach { row ->
+                val c = checkNotNull(db.ledgerDao().category(row.id))
+                db.accountDao().updateCategory(c.copy(colorArgb = CategoryService.DEFAULT_COLOR))
+            }
+            db.openHelper.writableDatabase.execSQL("DELETE FROM app_meta WHERE `key` = 'seed:category-colors:v1'")
+            assertTrue(categories.suggestedColors().isNotEmpty())
+            categories.dismissSuggestedColors().getOrThrow()
+            assertTrue(categories.suggestedColors().isEmpty())
+            assertTrue(categories.categories().all { it.colorArgb == CategoryService.DEFAULT_COLOR })
+        }
+
+    // ---- blueprint A: archive, restore, name reuse, usage, audit -------------------------------------------------
+
+    @Test
+    fun `an archived name offers a restore, and a restored name is taken again`() =
+        runBlocking<Unit> {
+            val food = categories.create("Food", AccountClass.EXPENSE).getOrThrow()
+            categories.archive(food).getOrThrow()
+            assertEquals("CATEGORY_NAME_ARCHIVED", categories.create("food", AccountClass.EXPENSE).errorOrNull()?.code)
+            assertEquals(food, categories.archivedNamed(" FOOD ", AccountClass.EXPENSE, null)?.id)
+            // The same name under another parent, or in the other class, is a different sibling group.
+            assertNotNull(categories.create("Food", AccountClass.INCOME).getOrThrow())
+
+            categories.unarchive(food).getOrThrow()
+            assertEquals("CATEGORY_NAME_TAKEN", categories.create("Food", AccountClass.EXPENSE).errorOrNull()?.code)
+            assertNull(categories.archivedNamed("Food", AccountClass.EXPENSE, null))
+        }
+
+    @Test
+    fun `name comparison folds Unicode case but keeps accents`() =
+        runBlocking<Unit> {
+            categories.create("Piñata", AccountClass.EXPENSE).getOrThrow()
+            assertEquals("CATEGORY_NAME_TAKEN", categories.create("PIÑATA", AccountClass.EXPENSE).errorOrNull()?.code)
+            assertEquals("CATEGORY_NAME_TAKEN", categories.create("  piñata ", AccountClass.EXPENSE).errorOrNull()?.code)
+            categories.create("Año", AccountClass.EXPENSE).getOrThrow()
+            assertNotNull(categories.create("Ano", AccountClass.EXPENSE).getOrThrow())
+        }
+
+    @Test
+    fun `usage counts budgets, bills, rules and transactions of a category and its children`() =
+        runBlocking<Unit> {
+            val gcash = account(500_000)
+            val food = categories.create("Food", AccountClass.EXPENSE).getOrThrow()
+            val groceries = categories.create("Groceries", AccountClass.EXPENSE, food).getOrThrow()
+            assertEquals(CategoryUsage(0, 0, 0, 0), categories.usage(food))
+
+            ledger.record(TxnHeader(nov5, key())) { t, _ -> t.expense(gcash, listOf(Split(groceries, p(1_000)))) }.getOrThrow()
+            ledger.record(TxnHeader(nov5, key())) { t, _ -> t.expense(gcash, listOf(Split(food, p(2_000)))) }.getOrThrow()
+            ph.financewallet.data.budget
+                .BudgetService(db, ctx)
+                .createBudget(
+                    ph.financewallet.data.budget.NewBudget(
+                        php,
+                        ph.financewallet.domain.budget.PeriodRule
+                            .Monthly(nov5, 5),
+                        ph.financewallet.data.budget.BudgetSettings(
+                            "Personal",
+                            ph.financewallet.domain.allocation.IncomeMode.MANUAL,
+                            null,
+                            listOf(
+                                ph.financewallet.data.budget
+                                    .BudgetCategorySpec(food),
+                            ),
+                        ),
+                    ),
+                ).getOrThrow()
+            ph.financewallet.data.advanced
+                .RecurringService(db, ctx, ledger)
+                .createRule(
+                    ph.financewallet.data.advanced.RuleSpec(
+                        ph.financewallet.data.advanced.RuleKind.BILL,
+                        "Groceries delivery",
+                        p(150_000),
+                        ph.financewallet.domain.recurring.Recurrence
+                            .Monthly(nov5, 20),
+                        accountId = gcash,
+                        categoryId = groceries,
+                    ),
+                ).getOrThrow()
+            ph.financewallet.data.imports
+                .CategoryRuleService(db, ctx)
+                .create(
+                    ph.financewallet.data.imports
+                        .NewRule("market", groceries),
+                ).getOrThrow()
+
+            assertEquals(CategoryUsage(budgets = 1, recurringRules = 1, categoryRules = 1, transactions = 2), categories.usage(food))
+            assertEquals(CategoryUsage(budgets = 0, recurringRules = 1, categoryRules = 1, transactions = 1), categories.usage(groceries))
+        }
+
+    @Test
+    fun `every category change writes an audit event`() =
+        runBlocking<Unit> {
+            val food = categories.create("Food", AccountClass.EXPENSE).getOrThrow()
+            val transport = categories.create("Transport", AccountClass.EXPENSE).getOrThrow()
+            categories.edit(food, "Meals", "restaurant", 0xFFE65100L).getOrThrow()
+            categories.reorder(AccountClass.EXPENSE, null, listOf(transport, food)).getOrThrow()
+            categories.archive(food).getOrThrow()
+            categories.unarchive(food).getOrThrow()
+
+            val kinds = db.accountDao().auditFor(food).map { it.kind }
+            assertEquals(listOf("category.create", "category.edit", "category.archive", "category.unarchive"), kinds)
+            val edit = db.accountDao().auditFor(food).single { it.kind == "category.edit" }
+            assertTrue(checkNotNull(edit.detailJson).contains("\"name.before\":\"Food\""))
+            assertTrue(checkNotNull(edit.detailJson).contains("\"name.after\":\"Meals\""))
+            assertEquals(listOf("category.reorder"), db.accountDao().auditFor(AccountClass.EXPENSE.name).map { it.kind })
+        }
+
+    @Test
+    fun `the seed can run again and adds only missing starter categories`() =
+        runBlocking<Unit> {
+            categories.seedDefaults().getOrThrow()
+            val food = categories.categories().single { it.name == "Food" && it.parentId == null }
+            val dining = categories.categories().single { it.name == "Dining Out" }
+            categories.archive(dining.id).getOrThrow()
+            categories.edit(food.id, "Meals", food.icon, food.colorArgb).getOrThrow() // renamed: "Food" is missing now
+
+            // "Food" is missing (renamed), so a new "Food" group with its 3 subcategories is added; nothing else.
+            assertEquals(4, categories.seedDefaults().getOrThrow())
+            val all = categories.categories(includeArchived = true)
+            assertEquals(1, all.count { it.name == "Dining Out" && it.parentId == food.id }) // archived one not re-created
+            assertTrue(all.any { it.name == "Food" && it.parentId == null })
+        }
+
+    /** Regression: after an opening balance went to zero and back, the next edit used to add a second opening. */
+    @Test
+    fun `an opening balance re-created after zero is edited in place, never duplicated`() =
+        runBlocking<Unit> {
+            val a = account(500_000)
+            accounts.edit(a, version(a), edit(0)).getOrThrow()
+            accounts.edit(a, version(a), edit(100_000)).getOrThrow()
+            accounts.edit(a, version(a), edit(250_000)).getOrThrow()
+            accounts.edit(a, version(a), edit(300_000)).getOrThrow()
+            assertEquals(p(300_000), ledger.balance(a, far))
+            val live =
+                db.openHelper.readableDatabase
+                    .query("SELECT COUNT(*) FROM txn WHERE type = 'OPENING_BALANCE' AND deleted_at IS NULL")
+                    .use { c -> c.moveToFirst().let { c.getInt(0) } }
+            assertEquals(1, live)
+
+            val state = checkNotNull(accounts.editState(a))
+            assertEquals(p(300_000), state.edit.openingAmount)
+            assertEquals(version(a), state.version)
+            assertEquals(false, state.currencyLocked)
+            val food = categories.create("Food", AccountClass.EXPENSE).getOrThrow()
+            ledger.record(TxnHeader(nov5, key())) { t, _ -> t.expense(a, listOf(Split(food, p(1)))) }.getOrThrow()
+            assertEquals(true, checkNotNull(accounts.editState(a)).currencyLocked)
+        }
 }

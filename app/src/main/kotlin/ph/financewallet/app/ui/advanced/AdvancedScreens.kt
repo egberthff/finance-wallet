@@ -37,12 +37,15 @@ import kotlinx.coroutines.launch
 import ph.financewallet.app.R
 import ph.financewallet.app.reminders.BillReminders
 import ph.financewallet.app.ui.accounts.CheckRow
+import ph.financewallet.app.ui.categories.CategoryPicker
+import ph.financewallet.app.ui.categories.categoryOptions
 import ph.financewallet.app.ui.common.AmountField
 import ph.financewallet.app.ui.common.AmountText
 import ph.financewallet.app.ui.common.CardList
 import ph.financewallet.app.ui.common.ChoiceChips
 import ph.financewallet.app.ui.common.EmptyCard
 import ph.financewallet.app.ui.common.ErrorLine
+import ph.financewallet.app.ui.common.FieldLabel
 import ph.financewallet.app.ui.common.FigureCard
 import ph.financewallet.app.ui.common.IconDisc
 import ph.financewallet.app.ui.common.ListRow
@@ -61,7 +64,13 @@ import ph.financewallet.data.advanced.DebtKind
 import ph.financewallet.data.advanced.DebtSummary
 import ph.financewallet.data.advanced.OccurrenceState
 import ph.financewallet.data.advanced.RuleKind
+import ph.financewallet.data.advanced.RuleStatus
 import ph.financewallet.data.advanced.UpcomingItem
+import ph.financewallet.data.db.entity.RecurringRuleEntity
+import ph.financewallet.domain.ledger.AccountClass
+import ph.financewallet.domain.money.CurrencyCode
+import ph.financewallet.domain.money.Money
+import ph.financewallet.domain.money.MoneyFormatter
 
 /** Dialog with Save/Cancel; [onSave] returns an error message resource or null (then the dialog closes). */
 @Composable
@@ -294,6 +303,7 @@ fun BillsScreen(
     val state by vm.state.collectAsStateWithLifecycle()
     var adding by remember { mutableStateOf(false) }
     var paying by remember { mutableStateOf<UpcomingItem?>(null) }
+    var editingRule by remember { mutableStateOf<RecurringRuleEntity?>(null) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { vm.refresh() }
     ListScreen(stringResource(R.string.bill_add), { adding = true }) {
@@ -303,6 +313,27 @@ fun BillsScreen(
         }
         items(state.items, key = { it.occurrenceId }) { item ->
             BillRow(item, onPay = { paying = item }, onSkip = { scope.launch { vm.skip(item) } })
+        }
+        if (state.rules.isNotEmpty()) {
+            item { SectionTitle(stringResource(R.string.bill_rules_title)) }
+            item {
+                CardList(state.rules) { r ->
+                    ListRow(r.name, subtitle = stringResource(ruleStatusLabel(r.status)), onClick = { editingRule = r }) {
+                        AmountText(
+                            Money(
+                                if (r.kind ==
+                                    RuleKind.EXPECTED_INCOME.name
+                                ) {
+                                    r.amountMinor
+                                } else {
+                                    -r.amountMinor
+                                },
+                                CurrencyCode.of(r.currency),
+                            ),
+                        )
+                    }
+                }
+            }
         }
         if (state.costs.isNotEmpty()) {
             item { SectionTitle(stringResource(R.string.bill_yearly_title)) }
@@ -316,6 +347,7 @@ fun BillsScreen(
     }
     if (adding) AddBillDialog(vm, state, onDismiss = { adding = false })
     paying?.let { item -> PayBillDialog(vm, item, state.accounts, newKey, onDismiss = { paying = null }) }
+    editingRule?.let { r -> EditRuleDialog(vm, state, r, onDismiss = { editingRule = null }) }
 }
 
 @Composable
@@ -438,12 +470,154 @@ private fun AddBillDialog(
         TextInput(day, { day = it }, stringResource(R.string.bill_due_day))
         Text(stringResource(R.string.field_account), style = MaterialTheme.typography.bodySmall)
         OptionPicker(state.accounts, account) { account = it }
-        Text(stringResource(R.string.field_category), style = MaterialTheme.typography.bodySmall)
-        OptionPicker(if (kind == RuleKind.EXPECTED_INCOME) state.incomeCategories else state.expenseCategories, category) { category = it }
+        FieldLabel(stringResource(R.string.field_category_optional))
+        val income = kind == RuleKind.EXPECTED_INCOME
+        CategoryPicker(
+            categoryOptions(state.categoryRows, if (income) "INCOME" else "EXPENSE", setOfNotNull(category)),
+            category,
+            onSelect = { category = it },
+            creator = vm.creator,
+            newCategoryClass = if (income) AccountClass.INCOME else AccountClass.EXPENSE,
+            onClear = { category = null },
+        )
         if (kind != RuleKind.EXPECTED_INCOME) TextInput(reminder, { reminder = it }, stringResource(R.string.bill_reminder_days))
         Text(stringResource(R.string.bill_never_auto_paid), style = MaterialTheme.typography.bodySmall)
     }
 }
+
+/** The editable fields of a bill rule, as typed. */
+private data class RuleDraft(
+    val name: String,
+    val amount: String,
+    val day: String,
+    val account: String?,
+    val category: String?,
+    val reminder: String,
+    val estimate: Boolean,
+)
+
+private fun draftOf(rule: RecurringRuleEntity) =
+    RuleDraft(
+        name = rule.name,
+        amount = MoneyFormatter.plain(Money(rule.amountMinor, CurrencyCode.of(rule.currency))),
+        day = rule.day1?.toString().orEmpty(),
+        account = rule.accountId,
+        category = rule.categoryId,
+        reminder = rule.reminderDaysBefore?.toString().orEmpty(),
+        estimate = rule.amountIsEstimate,
+    )
+
+/**
+ * Edit a bill, subscription or expected income (UC-22), and pause, resume or end it. Ending asks first; it stops new
+ * due dates and keeps every past payment.
+ */
+@Composable
+private fun EditRuleDialog(
+    vm: BillsViewModel,
+    state: BillsState,
+    rule: RecurringRuleEntity,
+    onDismiss: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var draft by remember { mutableStateOf(draftOf(rule)) }
+    var ending by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<Int?>(null) }
+    val run: (suspend () -> Int?) -> Unit = { action ->
+        scope.launch {
+            error = action()
+            if (error == null) onDismiss()
+        }
+    }
+    if (ending) {
+        EndRuleDialog(rule.name, onEnd = { run { vm.setStatus(rule.id, RuleStatus.ENDED) } }, onCancel = { ending = false })
+        return
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.bill_edit)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
+                RuleFields(vm, state, rule, draft) { draft = it }
+                ErrorLine(error)
+                RuleStatusButtons(rule.status, onStatus = { st -> run { vm.setStatus(rule.id, st) } }, onEnd = { ending = true })
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                run { with(draft) { vm.editRule(rule, name, amount, day, account, category, reminder, estimate) } }
+            }) { Text(stringResource(R.string.action_save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
+@Composable
+private fun RuleFields(
+    vm: BillsViewModel,
+    state: BillsState,
+    rule: RecurringRuleEntity,
+    d: RuleDraft,
+    onChange: (RuleDraft) -> Unit,
+) {
+    val income = rule.kind == RuleKind.EXPECTED_INCOME.name
+    TextInput(d.name, { onChange(d.copy(name = it)) }, stringResource(R.string.field_name))
+    AmountField(d.amount, { onChange(d.copy(amount = it)) }, stringResource(R.string.field_amount), null)
+    CheckRow(stringResource(R.string.bill_amount_estimate), d.estimate) { onChange(d.copy(estimate = it)) }
+    if (rule.frequency == "MONTHLY") TextInput(d.day, { onChange(d.copy(day = it)) }, stringResource(R.string.bill_due_day))
+    FieldLabel(stringResource(R.string.field_account))
+    OptionPicker(state.accounts, d.account) { onChange(d.copy(account = it)) }
+    FieldLabel(stringResource(R.string.field_category_optional))
+    CategoryPicker(
+        categoryOptions(state.categoryRows, if (income) "INCOME" else "EXPENSE", setOfNotNull(d.category)),
+        d.category,
+        onSelect = { onChange(d.copy(category = it)) },
+        creator = vm.creator,
+        newCategoryClass = if (income) AccountClass.INCOME else AccountClass.EXPENSE,
+        onClear = { onChange(d.copy(category = null)) },
+    )
+    if (!income) TextInput(d.reminder, { onChange(d.copy(reminder = it)) }, stringResource(R.string.bill_reminder_days))
+}
+
+/** Pause an active rule, resume a paused or ended one, and End (asks first) anything not yet ended. */
+@Composable
+private fun RuleStatusButtons(
+    status: String,
+    onStatus: (RuleStatus) -> Unit,
+    onEnd: () -> Unit,
+) {
+    Row {
+        if (status == RuleStatus.ACTIVE.name) {
+            TextButton(onClick = { onStatus(RuleStatus.PAUSED) }) { Text(stringResource(R.string.bill_pause)) }
+        } else {
+            TextButton(onClick = { onStatus(RuleStatus.ACTIVE) }) { Text(stringResource(R.string.bill_resume)) }
+        }
+        if (status != RuleStatus.ENDED.name) {
+            TextButton(onClick = onEnd) { Text(stringResource(R.string.bill_end), color = MaterialTheme.colorScheme.error) }
+        }
+    }
+}
+
+@Composable
+private fun EndRuleDialog(
+    name: String,
+    onEnd: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text(stringResource(R.string.bill_end_title, name)) },
+        text = { Text(stringResource(R.string.bill_end_message)) },
+        confirmButton = { TextButton(onClick = onEnd) { Text(stringResource(R.string.bill_end)) } },
+        dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
+private fun ruleStatusLabel(status: String): Int =
+    when (status) {
+        RuleStatus.ACTIVE.name -> R.string.bill_status_active
+        RuleStatus.PAUSED.name -> R.string.bill_status_paused
+        else -> R.string.bill_status_ended
+    }
 
 private fun ruleKindLabel(k: RuleKind): Int =
     when (k) {

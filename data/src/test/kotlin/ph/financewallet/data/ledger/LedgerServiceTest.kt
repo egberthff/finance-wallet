@@ -343,4 +343,56 @@ class LedgerServiceTest {
             }
             assertTrue(all.size > 6)
         }
+
+    // ---- blueprint B: edits of transactions whose category or account was archived since --------------------------
+
+    @Test
+    fun `an expense whose category was archived can still be corrected, but not moved to another archived category`() =
+        runBlocking<Unit> {
+            val categories =
+                ph.financewallet.data.account
+                    .CategoryService(db, ctx)
+            val gcash = account("GCash", opening = 100_000)
+            val food = category("Food")
+            val old = category("Old")
+            val h = header()
+            val id = service.record(h) { t, _ -> t.expense(gcash, listOf(Split(food, p(50_000)))) }.getOrThrow()
+            categories.archive(food).getOrThrow()
+            categories.archive(old).getOrThrow()
+
+            service
+                .edit(id, expectedVersion = 1, header = h.copy(description = "Lunch")) { t, _ ->
+                    t.expense(gcash, listOf(Split(food, p(45_000))))
+                }.getOrThrow()
+            assertEquals(listOf("CREATE", "UPDATE"), db.ledgerDao().revisions(id).map { it.changeKind })
+            assertEquals(p(45_000), service.summary(nov5, nov5).getValue(php).spending)
+
+            val moved = service.edit(id, expectedVersion = 2, header = h) { t, _ -> t.expense(gcash, listOf(Split(old, p(45_000)))) }
+            assertEquals("CATEGORY_ARCHIVED", moved.errorOrNull()?.code)
+            // A new transaction still cannot use the archived category.
+            val fresh = service.record(header()) { t, _ -> t.expense(gcash, listOf(Split(food, p(1_000)))) }
+            assertEquals("CATEGORY_ARCHIVED", fresh.errorOrNull()?.code)
+        }
+
+    @Test
+    fun `a transaction on an archived account can still be corrected, but not moved to another archived account`() =
+        runBlocking<Unit> {
+            val accounts =
+                ph.financewallet.data.account
+                    .AccountService(db, ctx, service)
+            val gcash = account("GCash", opening = 100_000)
+            val maya = account("Maya", opening = 0)
+            val food = category("Food")
+            val h = header()
+            val id = service.record(h) { t, _ -> t.expense(gcash, listOf(Split(food, p(20_000)))) }.getOrThrow()
+            accounts.archive(gcash, acknowledgeNonZeroBalance = true).getOrThrow()
+            accounts.archive(maya).getOrThrow()
+
+            service
+                .edit(id, expectedVersion = 1, header = h) { t, _ -> t.expense(gcash, listOf(Split(food, p(25_000)))) }
+                .getOrThrow()
+            assertEquals(p(75_000), service.balance(gcash, nov5))
+            val moved = service.edit(id, expectedVersion = 2, header = h) { t, _ -> t.expense(maya, listOf(Split(food, p(25_000)))) }
+            assertEquals("ACCOUNT_ARCHIVED", moved.errorOrNull()?.code)
+        }
 }

@@ -102,4 +102,22 @@ class TransactionQueriesTest {
             assertEquals(p(-200_000), gcashView.amount)
             assertNull(queries.page(accountId = gcash).next)
         }
+
+    @Test
+    fun `category ids are distinct by id while names are distinct by name`() =
+        runBlocking<Unit> {
+            val gcash = account("GCash")
+            val food = ledger.createCategory("Food", AccountClass.EXPENSE).getOrThrow()
+            val bills = ledger.createCategory("Bills", AccountClass.EXPENSE).getOrThrow()
+            val foodOther = ledger.createCategory("Other", AccountClass.EXPENSE, parentId = food).getOrThrow()
+            val billsOther = ledger.createCategory("Other", AccountClass.EXPENSE, parentId = bills).getOrThrow()
+            ledger
+                .record(TxnHeader(nov1, "k${++keySeq}")) { t, _ ->
+                    t.expense(gcash, listOf(Split(foodOther, p(100)), Split(billsOther, p(200))))
+                }.getOrThrow()
+            val item = queries.page().items.single { it.type == TxnType.EXPENSE }
+            assertEquals(listOf("Other"), item.categoryNames)
+            assertEquals(setOf(foodOther, billsOther), item.categoryIds.toSet())
+            assertEquals(2, item.categoryIds.size)
+        }
 }

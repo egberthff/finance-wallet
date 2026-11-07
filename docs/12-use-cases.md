@@ -54,9 +54,19 @@ Use cases are the **only** code allowed to write to the database (06-architectur
 - **UC-02:** the opening balance is edited through its SYSTEM transaction (create / edit / soft-delete, each with a revision).
   Currency can change only while the opening balance is the account's only history (`CURRENCY_LOCKED` otherwise).
 - **UC-03:** archiving an account with a non-zero balance requires an explicit acknowledgement (`BALANCE_NOT_ZERO`).
+- **UC-09:** an edit may keep an archived account or category that the transaction already uses (owner decision 2026-11-07,
+  docs/10-domain-model.md §3.6); the entry form shows it labelled "(archived)". Archived ones cannot be newly chosen.
 - **UC-13:** statement balances are entered as the user sees them (liabilities: positive amount owed); the stored
   difference is in ledger sign convention. Adjustments are BALANCE_ADJUSTMENT on the as-of date, never income or spending.
-- **UC-14:** names are unique among siblings case-insensitively; a parent can be archived only after its live subcategories.
+- **UC-14:** names are unique among siblings with Unicode case folding ("PIÑATA" = "Piñata"; accents are kept, so
+  "Año" ≠ "Ano"); archived siblings keep their name reserved, so a restore can never create a duplicate. Adding a name that
+  belongs to an archived sibling returns `CATEGORY_NAME_ARCHIVED` and the UI offers to restore it. A parent can be archived
+  only after its live subcategories, and a subcategory can be restored only after its parent. Archiving asks for
+  confirmation and shows what uses the category (budgets, bills and recurring items, import rules, past transactions);
+  it can be undone. Every create, edit, archive, restore, reorder, seed and colour change writes an `audit_event`.
+  *Decision 2026-11-07:* "Add suggested categories" can be run at any time and adds only the starter categories whose name
+  is missing among their siblings (live or archived), so it never duplicates or renames the user's categories; a renamed
+  starter category (e.g. "Food" → "Meals") is treated as missing.
 
 Read-side queries (balances, reports, dashboard) are **query services**, not use cases. They are read-only and run in `:data`,
 with calculations in `:domain` (`ReportCalculator`, `BudgetCalculator`, `NetWorthCalculator`).

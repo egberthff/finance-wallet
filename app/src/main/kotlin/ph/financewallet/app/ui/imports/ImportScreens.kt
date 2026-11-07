@@ -42,6 +42,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ph.financewallet.app.R
 import ph.financewallet.app.ui.accounts.CheckRow
+import ph.financewallet.app.ui.categories.CategoryCreator
+import ph.financewallet.app.ui.categories.CategoryPicker
+import ph.financewallet.app.ui.categories.categoryOptions
 import ph.financewallet.app.ui.common.AmountText
 import ph.financewallet.app.ui.common.CardList
 import ph.financewallet.app.ui.common.ChoiceChips
@@ -59,9 +62,11 @@ import ph.financewallet.app.ui.common.display
 import ph.financewallet.app.ui.theme.AppIcons
 import ph.financewallet.app.ui.theme.LocalSpacing
 import ph.financewallet.app.ui.transactions.Option
+import ph.financewallet.data.account.CategoryRow
 import ph.financewallet.data.imports.PreviewRow
 import ph.financewallet.data.imports.RowClass
 import ph.financewallet.data.imports.RowDecision
+import ph.financewallet.domain.ledger.AccountClass
 import ph.financewallet.importers.FileLimits
 import ph.financewallet.importers.RowError
 
@@ -285,7 +290,7 @@ private fun PreviewStep(
         items(
             preview.rows,
             key = { it.rowNo },
-        ) { r -> PreviewRowView(r, state.decisions[r.rowNo], state.categories, state.incomeCategoryIds) { vm.decide(r.rowNo, it) } }
+        ) { r -> PreviewRowView(r, state.decisions[r.rowNo], state.categoryRows, vm.creator) { vm.decide(r.rowNo, it) } }
         item {
             ErrorLine(error)
             Button(onClick = { scope.launch { error = vm.commit() } }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
@@ -338,8 +343,8 @@ private fun PreviewSummary(state: ImportState) {
 private fun PreviewRowView(
     r: PreviewRow,
     decision: RowDecision?,
-    categories: List<Option>,
-    incomeCategoryIds: Set<String>,
+    categoryRows: List<CategoryRow>,
+    creator: CategoryCreator,
     onDecide: (RowDecision) -> Unit,
 ) {
     val spacing = LocalSpacing.current
@@ -361,10 +366,15 @@ private fun PreviewRowView(
             DecisionChips(r, decision, onDecide)
             if (decision is RowDecision.Import) {
                 // Money in takes an income category, money out an expense category; offer only those.
-                val fitting = categories.filter { (it.id in incomeCategoryIds) == row.amount.isPositive }
-                ChoiceChips(fitting, fitting.firstOrNull { it.id == decision.categoryId }, { it.label }, { c ->
-                    onDecide(RowDecision.Import(c.id.takeIf { it != decision.categoryId }))
-                })
+                val income = row.amount.isPositive
+                CategoryPicker(
+                    categoryOptions(categoryRows, if (income) "INCOME" else "EXPENSE"),
+                    decision.categoryId,
+                    onSelect = { onDecide(RowDecision.Import(it)) },
+                    creator = creator,
+                    newCategoryClass = if (income) AccountClass.INCOME else AccountClass.EXPENSE,
+                    onClear = { onDecide(RowDecision.Import(null)) },
+                )
             }
         }
     }
@@ -550,7 +560,7 @@ fun RulesScreen(vm: RulesViewModel) {
     var auto by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(Unit) { vm.refresh() }
-    val names = state.categories.associate { it.id to it.label }
+    val names = state.names
     val spacing = LocalSpacing.current
     ListScreen {
         item {
@@ -567,7 +577,7 @@ fun RulesScreen(vm: RulesViewModel) {
                         pattern = it
                     }, label = { Text(stringResource(R.string.rules_pattern)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     FieldLabel(stringResource(R.string.field_category))
-                    ChoiceChips(state.categories, state.categories.firstOrNull { it.id == category }, { it.label }, { category = it.id })
+                    CategoryPicker(state.categories, category, onSelect = { category = it }, creator = vm.creator)
                     CheckRow(stringResource(R.string.rules_auto), auto) { auto = it }
                     ErrorLine(error)
                     Button(onClick = {

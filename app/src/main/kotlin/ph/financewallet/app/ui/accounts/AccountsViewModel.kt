@@ -7,8 +7,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import ph.financewallet.app.AppServices
 import ph.financewallet.app.R
+import ph.financewallet.app.ui.common.Tables
 import ph.financewallet.app.ui.common.errorRes
 import ph.financewallet.app.ui.common.parseAmount
+import ph.financewallet.app.ui.common.reloadOn
+import ph.financewallet.data.account.AccountEditState
 import ph.financewallet.data.account.AccountRow
 import ph.financewallet.data.account.ReconciledBalance
 import ph.financewallet.data.ledger.NewAccount
@@ -45,6 +48,7 @@ class AccountsViewModel(
     val state: StateFlow<AccountsState> = mutable
 
     init {
+        reloadOn(s, *Tables.ACCOUNTS) { mutable.value = load() }
         refresh()
     }
 
@@ -110,5 +114,28 @@ class AccountsViewModel(
         if (statement == null) return amountError ?: R.string.err_generic
         val result = s.accounts.reconcile(id, s.ctx.today(), statement, createAdjustment, key)
         return result.errorRes().also { if (it == null) mutable.value = load() }
+    }
+
+    /** Current values for the edit form (UC-02). */
+    suspend fun editState(id: String): AccountEditState? = s.accounts.editState(id)
+
+    /**
+     * UC-02 from the account dialog: name, institution and opening balance. The currency never changes here. A changed
+     * opening balance edits the account's opening transaction, which keeps a revision (TXN-06).
+     */
+    suspend fun edit(
+        id: String,
+        state: AccountEditState,
+        name: String,
+        institution: String,
+        openingText: String,
+    ): Int? {
+        val (opening, amountError) = parseAmount(openingText.ifBlank { "0" }, state.edit.currency)
+        if (opening == null) return amountError ?: R.string.err_generic
+        val edit = state.edit.copy(name = name, institution = institution.trim().ifEmpty { null }, openingAmount = opening)
+        return s.accounts
+            .edit(id, state.version, edit)
+            .errorRes()
+            .also { if (it == null) mutable.value = load() }
     }
 }

@@ -139,9 +139,10 @@ class LedgerService(
                 ensure(current.deletedAt == null, "txnId", "TXN_DELETED")
                 ensure(current.version == expectedVersion, "txnId", "STALE_VERSION")
                 ensure(current.type != TxnType.OPENING_BALANCE.name || header.source == "SYSTEM", "txnId", "USE_ACCOUNT_EDIT")
-                val draft = build(EntryTemplates(directory), reads).bind()
-                ensure(draft.type.name == current.type, "type", "TYPE_CHANGE_NOT_ALLOWED")
                 val before = dao.entries(txnId)
+                // Accounts and categories the transaction already uses stay valid even if archived since (UC-09, B).
+                val draft = build(EntryTemplates(directory, allowArchived = before.map { it.ledgerAccountId }.toSet()), reads).bind()
+                ensure(draft.type.name == current.type, "type", "TYPE_CHANGE_NOT_ALLOWED")
                 val beforeShape = before.map { it.ledgerAccountId to it.amountMinor }
                 val entriesChanged = beforeShape != draft.entries.map { it.accountId to it.amount.minor }
                 if (entriesChanged) ensure(!hasDependents(txnId), "txnId", "TXN_HAS_DEPENDENTS")

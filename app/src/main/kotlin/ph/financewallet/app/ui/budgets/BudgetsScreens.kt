@@ -34,6 +34,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import ph.financewallet.app.R
 import ph.financewallet.app.ui.accounts.CheckRow
+import ph.financewallet.app.ui.categories.CategoryChecklist
+import ph.financewallet.app.ui.categories.CategoryOption
 import ph.financewallet.app.ui.common.AmountField
 import ph.financewallet.app.ui.common.AmountText
 import ph.financewallet.app.ui.common.ChoiceChips
@@ -83,12 +85,12 @@ private sealed interface BudgetAction {
 fun BudgetsScreen(
     vm: BudgetsViewModel,
     newKey: () -> String,
+    onEditBudget: (String) -> Unit = {},
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     var creating by remember { mutableStateOf(false) }
     var action by remember { mutableStateOf<BudgetAction?>(null) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(Unit) { vm.refresh() }
     if (state.loading) {
         LoadingState(stringResource(R.string.loading))
     } else {
@@ -101,7 +103,14 @@ fun BudgetsScreen(
             }
             items(state.budgets, key = { it.id }) { card ->
                 Column(verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
-                    BudgetCardView(card, state.categoryNames, state.today, { action = it }, { id -> scope.launch { vm.close(id) } })
+                    BudgetCardView(
+                        card,
+                        state.categoryNames,
+                        state.today,
+                        { action = it },
+                        { id -> scope.launch { vm.close(id) } },
+                        { onEditBudget(card.id) },
+                    )
                     state.leftovers[card.id]?.let { list ->
                         LeftoverList(list, state.categoryNames) { l, r -> scope.launch { vm.resolve(l, r) } }
                     }
@@ -109,7 +118,8 @@ fun BudgetsScreen(
             }
         }
     }
-    if (creating) CreateBudgetDialog(vm, state.expenseCategories, onDismiss = { creating = false })
+    // The app clock's today (Asia/Manila), loaded with the screen; never the device default zone.
+    state.today?.let { today -> if (creating) CreateBudgetDialog(vm, state.expenseCategories, today, onDismiss = { creating = false }) }
     action?.let { a -> BudgetActionDialog(vm, state, a, newKey, onDismiss = { action = null }) }
 }
 
@@ -182,12 +192,14 @@ private fun BudgetCardView(
     today: java.time.LocalDate?,
     onAction: (BudgetAction) -> Unit,
     onClose: (String) -> Unit,
+    onEdit: () -> Unit,
 ) {
     val spacing = LocalSpacing.current
     SurfaceCard {
         Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             val o = card.current
             BudgetHeader(card.name, o?.period?.start, o?.period?.endInclusive, today)
+            TextButton(onClick = onEdit) { Text(stringResource(R.string.budget_edit)) }
             if (o == null) {
                 Text(stringResource(R.string.budget_no_current_period))
                 return@Column
@@ -334,62 +346,6 @@ private fun AmountActionDialog(
 }
 
 @Composable
-private fun CreateBudgetDialog(
-    vm: BudgetsViewModel,
-    categories: List<Option>,
-    onDismiss: () -> Unit,
-) {
-    val scope = rememberCoroutineScope()
-    var name by remember { mutableStateOf("") }
-    var day by remember { mutableStateOf("1") }
-    var manual by remember { mutableStateOf(false) }
-    val picked = remember { mutableStateListOf<String>() }
-    var error by remember { mutableStateOf<Int?>(null) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.budget_add)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
-                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.field_name)) }, singleLine = true)
-                OutlinedTextField(
-                    day,
-                    { day = it },
-                    label = { Text(stringResource(R.string.budget_start_day)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                )
-                CheckRow(stringResource(R.string.budget_manual_income), manual) { manual = it }
-                Text(stringResource(R.string.budget_pick_categories), style = MaterialTheme.typography.bodySmall)
-                if (categories.isEmpty()) Text(stringResource(R.string.entry_no_categories), style = MaterialTheme.typography.bodySmall)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(LocalSpacing.current.xs)) {
-                    categories.forEach { c ->
-                        FilterChip(c.id in picked, onClick = {
-                            if (c.id in
-                                picked
-                            ) {
-                                picked.remove(c.id)
-                            } else {
-                                picked.add(c.id)
-                            }
-                        }, label = { Text(c.label) })
-                    }
-                }
-                ErrorLine(error)
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                scope.launch {
-                    error = vm.createMonthly(name, day, picked.toList(), if (manual) IncomeMode.MANUAL else IncomeMode.TRACKED)
-                    if (error == null) onDismiss()
-                }
-            }) { Text(stringResource(R.string.action_save)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
-}
-
-@Composable
 fun GoalsScreen(
     vm: GoalsViewModel,
     newKey: () -> String,
@@ -397,7 +353,6 @@ fun GoalsScreen(
     val state by vm.state.collectAsStateWithLifecycle()
     var creating by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<GoalSummary?>(null) }
-    LaunchedEffect(Unit) { vm.refresh() }
     ListScreen(stringResource(R.string.goal_add), { creating = true }) {
         item {
             FigureCard(
@@ -413,7 +368,14 @@ fun GoalsScreen(
         items(state.goals, key = { it.id }) { g -> GoalCard(g, onClick = { selected = g }) }
     }
     if (creating) CreateGoalDialog(vm, onDismiss = { creating = false })
-    selected?.let { GoalDialog(vm, it, newKey, onDismiss = { selected = null }) }
+    var goalAction by remember { mutableStateOf<Pair<GoalSummary, GoalAction>?>(null) }
+    selected?.let { g ->
+        GoalDialog(vm, g, newKey, onDismiss = { selected = null }) { a ->
+            selected = null
+            goalAction = g to a
+        }
+    }
+    goalAction?.let { (g, a) -> GoalActionDialog(vm, state, g, a, newKey, onDismiss = { goalAction = null }) }
 }
 
 @Composable
@@ -489,6 +451,7 @@ private fun GoalDialog(
     g: GoalSummary,
     newKey: () -> String,
     onDismiss: () -> Unit,
+    onAction: (GoalAction) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     var amount by remember { mutableStateOf("") }
@@ -502,6 +465,12 @@ private fun GoalDialog(
             Column(verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
                 AmountField(amount, { amount = it }, stringResource(R.string.field_amount), null)
                 CheckRow(stringResource(R.string.goal_release_confirm), confirmed) { confirmed = it }
+                FlowRow {
+                    TextButton(onClick = { onAction(GoalAction.EDIT) }) { Text(stringResource(R.string.goal_edit)) }
+                    TextButton(onClick = { onAction(GoalAction.LINK) }) { Text(stringResource(R.string.goal_link_accounts)) }
+                    TextButton(onClick = { onAction(GoalAction.WITHDRAW) }) { Text(stringResource(R.string.goal_withdraw)) }
+                    TextButton(onClick = { onAction(GoalAction.TRANSFER) }) { Text(stringResource(R.string.goal_transfer)) }
+                }
                 ErrorLine(error)
             }
         },

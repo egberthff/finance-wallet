@@ -190,4 +190,17 @@ class EntryTemplatesTest {
         val d = t.transfer("gcash", "bpi", f.p(1)).getOrThrow()
         assertEquals(d.entries, f.post(d, LocalDate.of(2000, 1, 1)).entries)
     }
+
+    @Test
+    fun `archived ids are allowed only when listed in allowArchived (edits of existing transactions)`() {
+        val edit = EntryTemplates(f.directory, allowArchived = setOf("old-category", "old-wallet"))
+        // Listed: an edit may keep the archived category and account its transaction already uses.
+        assertNull(code(edit.expense("old-wallet", listOf(Split("old-category", f.p(1))))))
+        // Not listed: the default templates still refuse archived ones for new use.
+        assertEquals("CATEGORY_ARCHIVED", code(t.expense("gcash", listOf(Split("old-category", f.p(1))))))
+        assertEquals("ACCOUNT_ARCHIVED", code(t.expense("old-wallet", listOf(Split("food", f.p(1))))))
+        // Listing one archived id does not open up another.
+        val onlyCategory = EntryTemplates(f.directory, allowArchived = setOf("old-category"))
+        assertEquals("ACCOUNT_ARCHIVED", code(onlyCategory.expense("old-wallet", listOf(Split("old-category", f.p(1))))))
+    }
 }

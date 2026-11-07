@@ -7,9 +7,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import ph.financewallet.app.AppServices
 import ph.financewallet.app.R
+import ph.financewallet.app.ui.categories.CategoryCreator
+import ph.financewallet.app.ui.categories.ServicesCategoryCreator
 import ph.financewallet.app.ui.common.errorRes
 import ph.financewallet.app.ui.common.parseAmount
 import ph.financewallet.app.ui.transactions.Option
+import ph.financewallet.data.account.CategoryRow
 import ph.financewallet.data.advanced.AssetKind
 import ph.financewallet.data.advanced.AssetSummary
 import ph.financewallet.data.advanced.DebtKind
@@ -17,8 +20,10 @@ import ph.financewallet.data.advanced.DebtSummary
 import ph.financewallet.data.advanced.InstallmentPlan
 import ph.financewallet.data.advanced.NewDebt
 import ph.financewallet.data.advanced.RecurringCost
+import ph.financewallet.data.advanced.RecurringService
 import ph.financewallet.data.advanced.RuleKind
 import ph.financewallet.data.advanced.RuleSpec
+import ph.financewallet.data.advanced.RuleStatus
 import ph.financewallet.data.advanced.UpcomingItem
 import ph.financewallet.data.ledger.TxnHeader
 import ph.financewallet.domain.money.CurrencyCode
@@ -145,8 +150,10 @@ data class BillsState(
     val items: List<UpcomingItem> = emptyList(),
     val costs: List<RecurringCost> = emptyList(),
     val accounts: List<Option> = emptyList(),
-    val expenseCategories: List<Option> = emptyList(),
-    val incomeCategories: List<Option> = emptyList(),
+    /** Every rule (active, paused, ended) so it can be edited, paused, resumed or ended (blueprint I). */
+    val rules: List<ph.financewallet.data.db.entity.RecurringRuleEntity> = emptyList(),
+    /** All categories, archived included; the picker offers live ones of the right kind (blueprint D). */
+    val categoryRows: List<CategoryRow> = emptyList(),
 )
 
 /** Bills, subscriptions and expected income (UC-22/23). Marking paid always creates or links a real transaction. */
@@ -156,6 +163,9 @@ class BillsViewModel(
     private val mutable = MutableStateFlow(BillsState())
     val state: StateFlow<BillsState> = mutable
 
+/** "+ New category" in the bill form's picker. */
+    val creator: CategoryCreator = ServicesCategoryCreator(s) { mutable.value = load() }
+
     fun refresh() {
         viewModelScope.launch { mutable.value = load() }
     }
@@ -163,14 +173,14 @@ class BillsViewModel(
     suspend fun load(): BillsState {
         s.recurring.materialize()
         val today = s.ctx.today()
-        val categories = s.categories.categories()
+        val categories = s.categories.categories(includeArchived = true)
         return BillsState(
             loading = false,
             items = s.recurring.upcoming(today.minusDays(BACK), today.plusDays(AHEAD)),
             costs = s.recurring.costs(),
             accounts = s.accounts.accounts().map { Option(it.id, it.name) },
-            expenseCategories = categories.filter { it.accountClass == "EXPENSE" }.map { Option(it.id, it.name) },
-            incomeCategories = categories.filter { it.accountClass == "INCOME" }.map { Option(it.id, it.name) },
+            categoryRows = categories,
+            rules = s.recurring.rules(),
         )
     }
 
@@ -235,6 +245,67 @@ class BillsViewModel(
             )
         return result.errorRes().also { if (it == null) mutable.value = load() }
     }
+
+    /**
+     * Edits a rule (UC-22): name, amount, account, category, reminder and the estimate flag; for a monthly rule also the
+     * due day. Other frequencies keep their schedule. Past paid or skipped occurrences are not changed.
+     */
+    suspend fun editRule(
+        rule: ph.financewallet.data.db.entity.RecurringRuleEntity,
+        name: String,
+        amountText: String,
+        dayText: String,
+        accountId: String?,
+        categoryId: String?,
+        reminderDaysText: String,
+        estimate: Boolean,
+    ): Int? {
+        val (amount, error) =
+            parseAmount(
+                amountText,
+                ph.financewallet.domain.money.CurrencyCode
+                    .of(rule.currency),
+            )
+        val reminder = reminderDaysText.trim().toIntOrNull()
+        val current = RecurringService.recurrenceOf(rule)
+        val day = dayOrNull(dayText)
+        val inputError =
+            when {
+                amount == null -> error ?: R.string.err_generic
+                reminderDaysText.isNotBlank() && reminder == null -> R.string.err_reminder_days
+                current is Recurrence.Monthly && day == null -> R.string.err_start_day
+                else -> null
+            }
+        if (inputError != null || amount == null) return inputError ?: R.string.err_generic
+        val recurrence = if (current is Recurrence.Monthly) Recurrence.Monthly(current.anchorDate, checkNotNull(day)) else current
+        val spec =
+            RuleSpec(
+                kind = RuleKind.valueOf(rule.kind),
+                name = name,
+                amount = amount,
+                recurrence = recurrence,
+                amountIsEstimate = estimate,
+                endDate = rule.endDate?.let(java.time.LocalDate::parse),
+                accountId = accountId,
+                categoryId = categoryId,
+                autoPost = rule.autoPost,
+                reminderDaysBefore = reminder,
+            )
+        return s.recurring
+            .editRule(rule.id, rule.version, spec)
+            .errorRes()
+            .also { if (it == null) mutable.value = load() }
+    }
+
+    /** Pause, resume or end a rule. Ending keeps its history; it only stops new due dates. */
+    suspend fun setStatus(
+        ruleId: String,
+        status: RuleStatus,
+    ): Int? =
+        s.recurring
+            .setStatus(ruleId, status)
+            .errorRes()
+            .also { if (it == null) mutable.value = load() }
 
     suspend fun skip(item: UpcomingItem): Int? =
         s.recurring.skip(item.occurrenceId).errorRes().also {

@@ -20,9 +20,22 @@
 - **Device testing:** checklist A–G run on emulators (Android 13 debug + release, Android 11 release). Results and the 8
   defects found and fixed: [phase 8 QA report §7.1](../milestones/phase-8-quality-assurance.md#71-emulator-results-and-defects-found-2026-11-0607).
 
+## 1a. Update 2026-11-07 (after ANALYSIS.md blueprints A–J, not yet a release candidate)
+- **Build:** `gradlew check` passes: 347 tests (app 90, data 119, domain 118, importers 20), 0 failed; detekt, ktlint and
+  Lint clean. The rc1 APK/AAB above do **not** contain this work.
+- **Emulator API 33, debug build:** checklist H1, H2, H5, H8, H9, H13 passed (screenshots in `build/emulator-shots/shots/h*.png`).
+  One defect found and fixed: on the transaction detail screen, spending-category lines were coloured green like income.
+  Observation (not fixed): after choosing in the category sheet, focus returns to Amount and the keyboard reopens.
+- **Emulator API 33, release build (R8):** smoke passed: unlock, add suggested categories, category edit dialog, category
+  sheet in Add transaction; no FATAL in logcat. I1 confirmed via uiautomator.
+- **Not run yet:** H3, H4, H6, H7, H10–H12, H14–H16, I2–I4 with TalkBack, the Android 11 emulator, a physical phone.
+- **Emulator state now:** API 33 has the new **release** build (PIN 123456; starter categories added; no accounts). The
+  earlier rc1 release install on it was replaced (it held no data).
+
 ## 2. Not done yet (next run)
 | Item | How |
 |---|---|
+| Remaining H/I checks of the device checklist (new flows) | Debug build on API 33 and API 30; TalkBack on for I2–I4 |
 | Physical phone run of [device-test-checklist.md](device-test-checklist.md) with the rc1 APK | Side-load `dist/FinanceManager-1.0.0-rc1.apk`. On 2026-11-07 the phone `9585030154004ZK` appeared as an authorized adb device; it was **not** used without the owner's consent |
 | Android 8–10 | Create an API 26 AVD (`system-images;android-26;google_apis;x86`) |
 | NFR-02/03 with 50,000+ transactions | Needs a generated-data test build |

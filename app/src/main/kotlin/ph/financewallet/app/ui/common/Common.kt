@@ -8,12 +8,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
@@ -102,7 +101,7 @@ fun AmountField(
     )
 }
 
-/** Horizontal single-choice chips. */
+/** Single-choice chips that wrap onto new lines, so every option and the selection stay visible (C-12, J). */
 @Composable
 fun <T> ChoiceChips(
     options: List<T>,
@@ -111,8 +110,8 @@ fun <T> ChoiceChips(
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LazyRow(modifier, horizontalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
-        items(options) { option ->
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
+        options.forEach { option ->
             FilterChip(selected = option == selected, onClick = { onSelect(option) }, label = { Text(label(option)) })
         }
     }
@@ -149,4 +148,32 @@ fun ErrorLine(
     @StringRes message: Int?,
 ) {
     if (message != null) Text(stringResource(message), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+}
+
+/**
+ * Optional single choice among a possibly long list (a category's parent): chips wrap onto new lines, so every option
+ * and the selection stay visible (C-12). Tapping the selected chip clears it.
+ */
+@Composable
+fun <T> ParentPicker(
+    options: List<T>,
+    selected: T?,
+    label: (T) -> String = { it.toString() },
+    onSelect: (T?) -> Unit,
+) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
+        options.forEach { option ->
+            FilterChip(selected = option == selected, onClick = {
+                onSelect(
+                    if (option ==
+                        selected
+                    ) {
+                        null
+                    } else {
+                        option
+                    },
+                )
+            }, label = { Text(label(option)) })
+        }
+    }
 }

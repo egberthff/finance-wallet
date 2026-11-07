@@ -154,6 +154,10 @@ the bank reversed the charge). To *correct* a mistake, the user **edits** the tr
 - PENDING → POSTED is an edit with a revision.
 - Restrictions: a transaction that is reversed or refunded cannot have its amount or currency changed without first removing
   the dependent link (prevents orphaned refund > original). An imported transaction can be edited, and it stays linked to its batch.
+- **Archived accounts and categories on edit** (owner decision 2026-11-07): an archived account or category stays valid in
+  an edit of a transaction that *already* references it, so the amount, date or description of an old transaction can always
+  be corrected. It is still rejected (`ACCOUNT_ARCHIVED`, `CATEGORY_ARCHIVED`) for a new transaction and as a newly chosen
+  target of an edit. `EntryTemplates(directory, allowArchived = ids of the edited transaction's entries)` implements this.
 
 **EX-10 (AC-CORE-8)** — Expense ₱500 edited to ₱450: revision 2 stored with before 50000 / after 45000. Spending report shows ₱450.
 

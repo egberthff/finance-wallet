@@ -99,6 +99,33 @@ class BudgetService(
             writeChildren(budgetId, settings)
         }
 
+    /** A budget's current settings, period rule and version, for the edit screen (UC-16). Null if missing or archived. */
+    suspend fun editState(budgetId: String): BudgetEditState? {
+        val b = dao.budget(budgetId)?.takeIf { it.archivedAt == null } ?: return null
+        val currency = CurrencyCode.of(b.currency)
+        val specs =
+            dao.budgetCategories(budgetId).sortedBy { it.sortOrder }.map { c ->
+                BudgetCategorySpec(
+                    categoryId = c.categoryId,
+                    mode = AllocationMode.valueOf(c.allocationMode),
+                    defaultAmount = c.defaultAmountMinor?.let { Money(it, currency) },
+                    percentBp = c.percentBp,
+                    rollover = RolloverPolicy.valueOf(c.rolloverPolicy),
+                    carryNegative = c.carryNegative,
+                    sweepGoalId = c.sweepGoalId,
+                )
+            }
+        val settings =
+            BudgetSettings(
+                name = b.name,
+                incomeMode = IncomeMode.valueOf(b.incomeMode),
+                fixedIncome = b.fixedIncomeMinor?.let { Money(it, currency) },
+                categories = specs,
+                accountIds = dao.budgetAccountIds(budgetId).toSet(),
+            )
+        return BudgetEditState(settings, RuleCodec.ruleOf(b), b.version, effectiveDateFor(b))
+    }
+
     /**
      * First day a new period rule may apply (domain §5.1): the day after the later of the current period's end and the
      * last stored period's end. The current period is never split.

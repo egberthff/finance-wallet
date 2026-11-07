@@ -86,6 +86,14 @@ interface LedgerDao {
     @Query("SELECT * FROM txn WHERE id = :id")
     suspend fun txn(id: String): TxnEntity?
 
+    /** The live opening-balance transaction of [accountId], whatever idempotency key it was recorded with. */
+    @Query(
+        """SELECT t.* FROM txn t WHERE t.type = 'OPENING_BALANCE' AND t.deleted_at IS NULL
+             AND EXISTS (SELECT 1 FROM entry e WHERE e.txn_id = t.id AND e.ledger_account_id = :accountId)
+           ORDER BY t.created_at DESC LIMIT 1""",
+    )
+    suspend fun liveOpeningOf(accountId: String): TxnEntity?
+
     @Query("SELECT * FROM txn WHERE idempotency_key = :key")
     suspend fun txnByIdempotencyKey(key: String): TxnEntity?
 
@@ -113,6 +121,10 @@ interface LedgerDao {
         txnId: String,
         excludingId: String,
     ): Long
+
+    /** Live refunds linked to [txnId] (TXN-05), oldest first. */
+    @Query("SELECT * FROM txn WHERE refund_of_txn_id = :txnId AND deleted_at IS NULL ORDER BY txn_date, id")
+    suspend fun refundsOf(txnId: String): List<TxnEntity>
 
     @Query("SELECT COUNT(*) FROM txn WHERE refund_of_txn_id = :txnId AND deleted_at IS NULL")
     suspend fun liveRefundCount(txnId: String): Int

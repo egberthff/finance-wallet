@@ -22,9 +22,15 @@ public data class RefundOriginal(
  * produces entries in a fixed line order, and checks invariants I-1..I-3 before returning.
  *
  * Validation codes are part of the contract with the UI and are covered by tests.
+ *
+ * Archived accounts and categories are rejected (`ACCOUNT_ARCHIVED`, `CATEGORY_ARCHIVED`) except for the ids in
+ * [allowArchived]: an edit passes the ids its transaction already uses, so a transaction can still be corrected after
+ * its category or account was archived, while archived ones can never be newly chosen (owner decision 2026-11-07,
+ * docs/10-domain-model.md, UC-09).
  */
 public class EntryTemplates(
     private val accounts: AccountDirectory,
+    private val allowArchived: Set<String> = emptySet(),
 ) {
     public fun income(
         accountId: String,
@@ -280,7 +286,7 @@ public class EntryTemplates(
     ): LedgerAccount {
         val account = accounts.find(id) ?: notFound("account", id)
         ensure(account.accountClass.isReal, field, "ACCOUNT_NOT_REAL")
-        ensure(!account.archived, field, "ACCOUNT_ARCHIVED")
+        ensure(!account.archived || account.id in allowArchived, field, "ACCOUNT_ARCHIVED")
         return account
     }
 
@@ -290,7 +296,7 @@ public class EntryTemplates(
     ): LedgerAccount {
         val account = accounts.find(id) ?: notFound("category", id)
         ensure(account.accountClass == expected, "categoryId", "CATEGORY_WRONG_CLASS")
-        ensure(!account.archived, "categoryId", "CATEGORY_ARCHIVED")
+        ensure(!account.archived || account.id in allowArchived, "categoryId", "CATEGORY_ARCHIVED")
         return account
     }
 

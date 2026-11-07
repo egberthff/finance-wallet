@@ -8,8 +8,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ph.financewallet.app.AppServices
 import ph.financewallet.app.R
+import ph.financewallet.app.ui.categories.CategoryCreator
+import ph.financewallet.app.ui.categories.CategoryOption
+import ph.financewallet.app.ui.categories.ServicesCategoryCreator
+import ph.financewallet.app.ui.categories.categoryOptions
 import ph.financewallet.app.ui.common.errorRes
 import ph.financewallet.app.ui.transactions.Option
+import ph.financewallet.data.account.CategoryRow
 import ph.financewallet.data.imports.BatchSummary
 import ph.financewallet.data.imports.CommitResult
 import ph.financewallet.data.imports.ImportPreview
@@ -83,9 +88,8 @@ data class ImportState(
     val dateCandidates: List<String> = emptyList(),
     val preview: ImportPreview? = null,
     val decisions: Map<Int, RowDecision> = emptyMap(),
-    val categories: List<Option> = emptyList(),
-    /** Income categories; the others are expense categories. Each preview row offers only the kind that fits its sign. */
-    val incomeCategoryIds: Set<String> = emptySet(),
+    /** All categories (archived included); each preview row offers the live ones of the kind that fits its sign. */
+    val categoryRows: List<CategoryRow> = emptyList(),
     val result: CommitResult? = null,
     val busy: Boolean = false,
     val error: Int? = null,
@@ -101,21 +105,21 @@ class ImportViewModel(
     private val mutable = MutableStateFlow(ImportState())
     val state: StateFlow<ImportState> = mutable
 
+/** "+ New category" in the preview rows' pickers. */
+    val creator: CategoryCreator = ServicesCategoryCreator(s) { loadOptions() }
+
     init {
         viewModelScope.launch { loadOptions() }
     }
 
     suspend fun loadOptions() {
         val accounts = s.accounts.accounts().map { Option(it.id, it.name) }
-        val rows = s.categories.categories()
-        val categories = rows.map { Option(it.id, it.name) }
-        val income = rows.filter { it.accountClass == ph.financewallet.domain.ledger.AccountClass.INCOME.name }.map { it.id }.toSet()
+        val rows = s.categories.categories(includeArchived = true)
         mutable.update {
             it.copy(
                 accounts = accounts,
                 accountId = it.accountId ?: accounts.firstOrNull()?.id,
-                categories = categories,
-                incomeCategoryIds = income,
+                categoryRows = rows,
             )
         }
     }
@@ -269,8 +273,7 @@ class ImportViewModel(
             ImportState(
                 accounts = it.accounts,
                 accountId = it.accountId,
-                categories = it.categories,
-                incomeCategoryIds = it.incomeCategoryIds,
+                categoryRows = it.categoryRows,
             )
         }
 
@@ -334,7 +337,10 @@ class ImportHistoryViewModel(
 
 data class RulesState(
     val rules: List<ph.financewallet.data.db.entity.CategoryRuleEntity> = emptyList(),
-    val categories: List<Option> = emptyList(),
+    /** Live categories, "main › sub" (blueprint D). */
+    val categories: List<CategoryOption> = emptyList(),
+    /** Category paths by id, archived included, for the rule list. */
+    val names: Map<String, String> = emptyMap(),
 )
 
 /** Categorization rules (UC-15). They suggest categories during import and never change past transactions. */
@@ -348,7 +354,14 @@ class RulesViewModel(
         viewModelScope.launch { mutable.value = load() }
     }
 
-    suspend fun load() = RulesState(s.rules.rules(), s.categories.categories().map { Option(it.id, it.name) })
+    /** "+ New category" in the rule form's picker. */
+    val creator: CategoryCreator = ServicesCategoryCreator(s) { mutable.value = load() }
+
+    suspend fun load(): RulesState {
+        val rows = s.categories.categories(includeArchived = true)
+        val all = categoryOptions(rows, includeIds = rows.map { it.id }.toSet())
+        return RulesState(s.rules.rules(), categoryOptions(rows), all.associate { it.id to it.path })
+    }
 
     suspend fun create(
         pattern: String,

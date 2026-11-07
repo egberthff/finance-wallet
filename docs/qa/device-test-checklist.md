@@ -80,6 +80,34 @@ Use made-up records only; do not enter real account numbers. For each check writ
 | G4 | Airplane mode on, use the app | Everything works (the app never needs internet) | |
 | G5 | Anything confusing, slow or wrong | Free notes | |
 
+
+## H. Categories, entry and transaction flows (ANALYSIS.md blueprints A–J)
+| # | Steps | Expected | Result |
+|---|---|---|---|
+| H1 | More › Categories: tap a category, change name, icon and colour, Save | The new name, icon and colour show in the list, on old transactions and in Reports | Pass (emulator API 33, 2026-11-07) |
+| H2 | Tap a category → Archive | A confirmation names it and shows what uses it; after Archive a snackbar offers **Undo**, which brings it back | Pass (emulator API 33, 2026-11-07) |
+| H3 | Archive a category, open **Archived (n)**, tap Restore; then add a new category with the same name as an archived one | Restore works; adding offers "Restore it?" instead of an unexplained error | |
+| H4 | Categories › Reorder, move rows with the arrows, press Back | Asks "Save the new order?"; Save keeps it, Discard drops it | |
+| H5 | Add transaction: tap the category field, search "groc", pick it; then use **+ New category** in the sheet | The sheet finds it; a new category is created, selected and used | Pass (emulator API 33, 2026-11-07). Note: closing the sheet puts focus back on Amount and reopens the keyboard |
+| H6 | Save an expense, open Add transaction again | Last account and category are already selected; Recent shows used categories first | |
+| H7 | Archive the category of an old expense, then edit that expense's amount | The category shows "(archived)" and the edit saves | |
+| H8 | Transactions: tap a row | Detail screen shows all fields and History; Edit, Record refund (expenses), Delete (with confirmation) | Pass (emulator API 33, 2026-11-07). Defect found and fixed: category lines were green like income; now neutral |
+| H9 | Detail → Record refund with more than the expense | Refused with a clear message; a smaller refund is linked and lowers spending | Pass (emulator API 33, 2026-11-07) |
+| H10 | Transactions → Filter by account, category, dates; then Clear | Only matching rows; a summary and Clear stay visible while filtered | |
+| H11 | Scroll down and load more, edit a transaction there, come back | The list stays where it was and shows the change without pulling to refresh | |
+| H12 | Accounts: tap an account → View transactions; → Edit details: change opening balance | Filtered list; the balance changes and the opening transaction shows a revision | |
+| H13 | Budgets: New budget with Weekly / Twice a month / Every N days / One custom period | "Next periods" preview shows the dates before saving; the budget uses them | Pass (emulator API 33, 2026-11-07) |
+| H14 | Budget card → Edit budget: per-category allocation and rollover, change period, archive | Saved; period change starts after the current period; archive asks first | |
+| H15 | Bills: tap a bill under "Your bills and expected income" → edit, Pause, Resume, End | Changes saved; End asks first and keeps past payments | |
+| H16 | Goals: tap a goal → Edit, Linked accounts, Withdraw to a budget, Move to another goal | Withdraw and move need the confirmation tick; a linked goal can't exceed the account balance | |
+
+## I. Accessibility of the new components (TalkBack on)
+| # | Steps | Expected | Result |
+|---|---|---|---|
+| I1 | Category field in Add transaction | Reads "Category, Food › Groceries" (or "Choose a category"); double tap opens the sheet | Pass (release build, uiautomator: "Category, Choose a category") |
+| I2 | Icon and colour grids in the category dialog | Each option reads its name ("Food", "Red") and whether it is selected | Partly: colour names read in release (Slate, Pink…); icon names and TalkBack not run |
+| I3 | Reorder arrows | Read "Move Food up" / "Move Food down"; at the ends the arrow is disabled | |
+| I4 | Picker rows, filter chips, budget checklist | Each row is one 48 dp target; selected state is announced; focus order follows the screen | |
 ## Not covered by this checklist
 - NFR-02/03 timing with 50,000+ transactions needs a test build with generated data and a USB connection (adb). It will be
   done separately if you connect the phone.

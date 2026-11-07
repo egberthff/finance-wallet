@@ -45,6 +45,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ph.financewallet.app.R
+import ph.financewallet.app.ui.categories.CategoryIcon
 import ph.financewallet.app.ui.common.AmountText
 import ph.financewallet.app.ui.common.CardList
 import ph.financewallet.app.ui.common.ChoiceChips
@@ -62,6 +63,7 @@ import ph.financewallet.app.ui.components.LoadingState
 import ph.financewallet.app.ui.theme.AppIcons
 import ph.financewallet.app.ui.theme.LocalFinanceColors
 import ph.financewallet.app.ui.theme.LocalSpacing
+import ph.financewallet.data.account.CategoryRow
 import ph.financewallet.data.advanced.CategoryReportLine
 import ph.financewallet.domain.money.Money
 import ph.financewallet.domain.report.RangeKind
@@ -102,11 +104,11 @@ private fun ReportsContent(
         item { IncomeExpenseCard(state) }
         if (state.spending.isNotEmpty()) {
             item { SectionTitle(stringResource(R.string.reports_spending_by_category)) }
-            item { CategoryCard(state.spending, negative = true, color = fc.expense, onClick = vm::drillDown) }
+            item { CategoryCard(state.spending, state.categoryStyles, negative = true, color = fc.expense, onClick = vm::drillDown) }
         }
         if (state.income.isNotEmpty()) {
             item { SectionTitle(stringResource(R.string.reports_income_by_category)) }
-            item { CategoryCard(state.income, negative = false, color = fc.income, onClick = vm::drillDown) }
+            item { CategoryCard(state.income, state.categoryStyles, negative = false, color = fc.income, onClick = vm::drillDown) }
         }
         if (state.byAccount.isNotEmpty()) {
             item { SectionTitle(stringResource(R.string.reports_by_account)) }
@@ -168,6 +170,7 @@ private const val HALF_TURN = 180f
 @Composable
 private fun CategoryCard(
     lines: List<CategoryReportLine>,
+    styles: Map<String, CategoryRow>,
     negative: Boolean,
     color: androidx.compose.ui.graphics.Color,
     onClick: (CategoryReportLine) -> Unit,
@@ -176,7 +179,7 @@ private fun CategoryCard(
     CardList(lines) { line ->
         // Display-only scaling of integer amounts to a bar length; no money arithmetic happens here.
         val share = (kotlin.math.abs(line.total.minor).toDouble() / largest).toFloat()
-        CategoryRow(line, negative, share, color, onClick = { onClick(line) })
+        CategoryReportRow(line, styles[line.categoryId], negative, share, color, onClick = { onClick(line) })
     }
 }
 
@@ -214,8 +217,9 @@ private fun IncomeExpenseCard(state: ReportsState) {
 }
 
 @Composable
-private fun CategoryRow(
+private fun CategoryReportRow(
     line: CategoryReportLine,
+    style: CategoryRow?,
     negative: Boolean,
     share: Float,
     color: androidx.compose.ui.graphics.Color,
@@ -227,7 +231,9 @@ private fun CategoryRow(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = spacing.md, vertical = spacing.sm + spacing.xs),
         verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            // System lines (interest and fees, uncategorized) have no category row, so no icon.
+            if (style != null) CategoryIcon(style, small = true)
             Text(name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
             AmountText(if (negative) -line.total else line.total)
         }

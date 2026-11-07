@@ -30,6 +30,11 @@ data class TransactionListItem(
     val accountName: String,
     val counterpartyName: String?,
     val categoryNames: List<String>,
+    /**
+     * Distinct category ids of the transaction (for the category icon). Not aligned with [categoryNames], which is
+     * distinct by name: two categories named "Other" under different parents give two ids but one name.
+     */
+    val categoryIds: List<String> = emptyList(),
     val version: Long,
 )
 
@@ -121,6 +126,7 @@ class TransactionQueries(
             accountName = account(focus).name,
             counterpartyName = counterparty,
             categoryNames = categories.map { account(it).name }.distinct(),
+            categoryIds = categories.map { it.ledgerAccountId }.distinct(),
             version = row.version,
         )
     }

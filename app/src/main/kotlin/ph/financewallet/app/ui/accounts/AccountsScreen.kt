@@ -56,18 +56,19 @@ import ph.financewallet.app.ui.components.EmptyState
 import ph.financewallet.app.ui.components.LoadingState
 import ph.financewallet.app.ui.theme.AppIcons
 import ph.financewallet.app.ui.theme.LocalSpacing
+import ph.financewallet.domain.ledger.AccountClass
 import ph.financewallet.domain.ledger.FinancialAccountType
+import ph.financewallet.domain.money.MoneyFormatter
 
 @Composable
 fun AccountsScreen(
     vm: AccountsViewModel,
     newKey: () -> String,
+    onShowTransactions: (String) -> Unit = {},
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     var adding by rememberSaveable { mutableStateOf(false) }
     var selected by remember { mutableStateOf<AccountUi?>(null) }
-    // Balances change from other screens (entries, imports, undo): reload every time the tab is shown.
-    androidx.compose.runtime.LaunchedEffect(Unit) { vm.refresh() }
     Scaffold(
         contentWindowInsets = WindowInsets(0),
         floatingActionButton = {
@@ -96,7 +97,24 @@ fun AccountsScreen(
         }
     }
     if (adding) AddAccountDialog(vm, onDismiss = { adding = false })
-    selected?.let { AccountDialog(vm, it, newKey, onDismiss = { selected = null }) }
+    var editing by remember { mutableStateOf<AccountUi?>(null) }
+    selected?.let { a ->
+        AccountDialog(
+            vm,
+            a,
+            newKey,
+            onDismiss = { selected = null },
+            onShowTransactions = {
+                selected = null
+                onShowTransactions(a.row.id)
+            },
+            onEdit = {
+                selected = null
+                editing = a
+            },
+        )
+    }
+    editing?.let { EditAccountDialog(vm, it, onDismiss = { editing = null }) }
 }
 
 @Composable
@@ -229,6 +247,8 @@ private fun AccountDialog(
     a: AccountUi,
     newKey: () -> String,
     onDismiss: () -> Unit,
+    onShowTransactions: () -> Unit,
+    onEdit: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     var statement by rememberSaveable { mutableStateOf("") }
@@ -243,6 +263,10 @@ private fun AccountDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
                 LabeledRow(stringResource(R.string.accounts_balance_calculated)) { AmountText(a.balance) }
+                Row {
+                    TextButton(onClick = onShowTransactions) { Text(stringResource(R.string.accounts_view_transactions)) }
+                    if (!archived) TextButton(onClick = onEdit) { Text(stringResource(R.string.accounts_edit)) }
+                }
                 if (!archived) {
                     Text(stringResource(R.string.accounts_reconcile_title), style = MaterialTheme.typography.titleSmall)
                     AmountField(statement, { statement = it }, stringResource(R.string.accounts_statement_balance), null)
@@ -272,6 +296,64 @@ private fun AccountDialog(
         },
     )
 }
+
+/**
+ * UC-02 edit: name, institution and opening balance. The currency is shown but locked. Changing the opening balance
+ * edits the account's opening transaction, which keeps a revision, so the change is never silent.
+ */
+@Composable
+private fun EditAccountDialog(
+    vm: AccountsViewModel,
+    a: AccountUi,
+    onDismiss: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var state by remember { mutableStateOf<ph.financewallet.data.account.AccountEditState?>(null) }
+    var name by rememberSaveable { mutableStateOf(a.row.name) }
+    var institution by rememberSaveable { mutableStateOf(a.row.institution.orEmpty()) }
+    var opening by rememberSaveable { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<Int?>(null) }
+    androidx.compose.runtime.LaunchedEffect(a.row.id) {
+        state = vm.editState(a.row.id)
+        if (opening == null) opening = state?.edit?.openingAmount?.let { MoneyFormatter.plain(it) }
+    }
+    val loaded = state ?: return
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.accounts_edit)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
+                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.field_name)) }, singleLine = true)
+                OutlinedTextField(
+                    institution,
+                    { institution = it },
+                    label = { Text(stringResource(R.string.field_institution)) },
+                    singleLine = true,
+                )
+                AmountField(opening.orEmpty(), { opening = it }, stringResource(openingLabel(a.row.accountClass)), null)
+                Text(stringResource(R.string.accounts_opening_revision), style = MaterialTheme.typography.bodySmall)
+                Text(
+                    stringResource(R.string.accounts_currency_locked, loaded.edit.currency.code),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                ErrorLine(error)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                scope.launch {
+                    error = vm.edit(a.row.id, loaded, name, institution, opening.orEmpty())
+                    if (error == null) onDismiss()
+                }
+            }) { Text(stringResource(R.string.action_save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
+private fun openingLabel(accountClass: String): Int =
+    if (accountClass == AccountClass.LIABILITY.name) R.string.accounts_opening_owed else R.string.accounts_opening_balance
 
 @Composable
 fun CheckRow(

@@ -242,6 +242,19 @@ class GoalService(
 
     suspend fun goals(): List<GoalSummary> = dao.goals().map { summary(it.id) }
 
+    /** A goal's editable details (name, target, date, notes, look), for the edit form. Null if missing. */
+    suspend fun details(goalId: String): GoalDetails? =
+        dao.goal(goalId)?.let { g ->
+            GoalDetails(
+                name = g.name,
+                target = Money(g.targetMinor, CurrencyCode.of(g.currency)),
+                targetDate = g.targetDate?.let(LocalDate::parse),
+                notes = g.notes,
+                icon = g.icon,
+                colorArgb = g.colorArgb,
+            )
+        }
+
     /**
      * Free money (dashboard, domain §6) in [currency] = Σ current balances of spendable asset accounts − Σ allocations
      * of goals not linked to any account (linked goals are already inside their accounts' balances).

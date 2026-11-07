@@ -7,13 +7,19 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import ph.financewallet.app.AppServices
 import ph.financewallet.app.R
+import ph.financewallet.app.ui.categories.CategoryOption
+import ph.financewallet.app.ui.categories.categoryOptions
+import ph.financewallet.app.ui.common.Tables
 import ph.financewallet.app.ui.common.errorRes
 import ph.financewallet.app.ui.common.errorText
 import ph.financewallet.app.ui.common.parseAmount
+import ph.financewallet.app.ui.common.reloadOn
 import ph.financewallet.app.ui.transactions.Option
+import ph.financewallet.data.account.CategoryRow
 import ph.financewallet.data.budget.BudgetCategorySpec
 import ph.financewallet.data.budget.BudgetSettings
 import ph.financewallet.data.budget.GoalDetails
+import ph.financewallet.data.budget.GoalStatus
 import ph.financewallet.data.budget.GoalSummary
 import ph.financewallet.data.budget.Leftover
 import ph.financewallet.data.budget.LeftoverResolution
@@ -40,7 +46,10 @@ data class BudgetsState(
     val loading: Boolean = true,
     val budgets: List<BudgetCard> = emptyList(),
     val categoryNames: Map<String, String> = emptyMap(),
-    val expenseCategories: List<Option> = emptyList(),
+    /** Expense categories in "main › sub" order, for the budget category checklist (blueprint D). */
+    val expenseCategories: List<CategoryOption> = emptyList(),
+    /** All categories (archived included), for editing a budget that already uses an archived one. */
+    val categoryRows: List<CategoryRow> = emptyList(),
     val goals: List<GoalSummary> = emptyList(),
     /** Leftovers of closed periods waiting for a decision (MANUAL rollover policy), per budget id. */
     val leftovers: Map<String, List<Leftover>> = emptyMap(),
@@ -59,6 +68,7 @@ class BudgetsViewModel(
     val state: StateFlow<BudgetsState> = mutable
 
     init {
+        reloadOn(s, *Tables.BUDGETS) { mutable.value = load() }
         refresh()
     }
 
@@ -77,7 +87,8 @@ class BudgetsViewModel(
             loading = false,
             budgets = cards,
             categoryNames = categories.associate { it.id to it.name },
-            expenseCategories = categories.filter { it.accountClass == "EXPENSE" && it.archivedAt == null }.map { Option(it.id, it.name) },
+            expenseCategories = categoryOptions(categories, "EXPENSE"),
+            categoryRows = categories,
             goals = s.goals.goals().filter { it.status.name != "ARCHIVED" },
             leftovers = cards.associate { it.id to s.budgets.leftovers(it.id) }.filterValues { it.isNotEmpty() },
             today = s.ctx.today(),
@@ -117,6 +128,25 @@ class BudgetsViewModel(
                 mutable.value = load()
             }
         }
+    }
+
+    /**
+     * A budget with any period type (BUD-01/02, blueprint I): monthly from a start day, twice a month, weekly, every two
+     * weeks, every N days, or one custom period. The first period is the one containing today.
+     */
+    suspend fun create(
+        name: String,
+        period: PeriodForm,
+        categoryIds: List<String>,
+        mode: IncomeMode,
+    ): Int? {
+        val (rule, error) = period.toRule(s.ctx.today(), forNewBudget = true)
+        if (rule == null) return error ?: R.string.err_generic
+        val settings = BudgetSettings(name, mode, null, categoryIds.map { BudgetCategorySpec(it) })
+        return s.budgets
+            .createBudget(NewBudget(CurrencyCode.PHP, rule, settings))
+            .errorRes()
+            .also { if (it == null) mutable.value = load() }
     }
 
     suspend fun allocate(
@@ -192,6 +222,10 @@ data class GoalsState(
     val loading: Boolean = true,
     val goals: List<GoalSummary> = emptyList(),
     val freeMoney: Money = Money.zero(CurrencyCode.PHP),
+    /** Asset accounts a goal can be linked to (money physically held there, SAV-03). */
+    val accounts: List<Option> = emptyList(),
+    /** Open budget periods a goal can be withdrawn into ("Budget · 5 Nov – 4 Dec"). */
+    val periods: List<Option> = emptyList(),
 )
 
 /** Savings goals (UC-20/21) outside a budget: earmark free money, release with confirmation. */
@@ -202,6 +236,7 @@ class GoalsViewModel(
     val state: StateFlow<GoalsState> = mutable
 
     init {
+        reloadOn(s, *Tables.BUDGETS) { mutable.value = load() }
         refresh()
     }
 
@@ -209,7 +244,95 @@ class GoalsViewModel(
         viewModelScope.launch { mutable.value = load() }
     }
 
-    suspend fun load() = GoalsState(false, s.goals.goals(), s.goals.freeMoney(CurrencyCode.PHP))
+    suspend fun load(): GoalsState {
+        val periods =
+            s.budgets.activeBudgets().mapNotNull { b ->
+                (s.budgets.refresh(b.id) as? DomainResult.Ok)?.value?.let { p ->
+                    Option(p.id, "${b.name} · ${ph.financewallet.app.ui.common.dateRange(p.start, p.endInclusive)}")
+                }
+            }
+        return GoalsState(
+            loading = false,
+            goals = s.goals.goals(),
+            freeMoney = s.goals.freeMoney(CurrencyCode.PHP),
+            accounts =
+                s.accounts
+                    .accounts()
+                    .filter { it.accountClass == "ASSET" }
+                    .map { Option(it.id, it.name) },
+            periods = periods,
+        )
+    }
+
+    suspend fun details(goalId: String): GoalDetails? = s.goals.details(goalId)
+
+    /** Today on the app clock (Asia/Manila). */
+    fun today(): LocalDate = s.ctx.today()
+
+    /** Edits name, target, target date and notes, and pauses, resumes or archives the goal (SAV-01). */
+    suspend fun edit(
+        g: GoalSummary,
+        name: String,
+        targetText: String,
+        targetDate: LocalDate?,
+        notes: String,
+        status: GoalStatus,
+    ): Int? {
+        val current = s.goals.details(g.id) ?: return R.string.err_not_found
+        val (target, error) = parseAmount(targetText, g.target.currency)
+        if (target == null) return error
+        val details = current.copy(name = name, target = target, targetDate = targetDate, notes = notes.trim().ifEmpty { null })
+        return s.goals
+            .editGoal(g.id, g.version, details, status)
+            .errorRes()
+            .also { if (it == null) mutable.value = load() }
+    }
+
+    /** Links the goal to the accounts that physically hold its money; the goal can then not exceed their balance (SAV-03). */
+    suspend fun linkAccounts(
+        g: GoalSummary,
+        accountIds: Set<String>,
+    ): Int? =
+        s.goals
+            .linkAccounts(g.id, g.version, accountIds)
+            .errorRes()
+            .also { if (it == null) mutable.value = load() }
+
+    /** Moves money from the goal back to a budget period's unallocated pool. Needs [confirmed] and records [reason] (CLAUDE.md §9). */
+    suspend fun withdraw(
+        g: GoalSummary,
+        periodId: String?,
+        amountText: String,
+        reason: String,
+        confirmed: Boolean,
+        key: String,
+    ): Int? {
+        val period = periodId ?: return R.string.err_goal_period_required
+        val (amount, error) = parseAmount(amountText, g.target.currency)
+        if (amount == null) return error
+        return s.goals
+            .withdraw(g.id, period, amount, confirmed, key, reason.trim().ifEmpty { null })
+            .errorRes()
+            .also { if (it == null) mutable.value = load() }
+    }
+
+    /** Moves money from one goal to another. Needs [confirmed] and records [reason]. */
+    suspend fun transfer(
+        g: GoalSummary,
+        toGoalId: String?,
+        amountText: String,
+        reason: String,
+        confirmed: Boolean,
+        key: String,
+    ): Int? {
+        val to = toGoalId ?: return R.string.err_goal_target_required
+        val (amount, error) = parseAmount(amountText, g.target.currency)
+        if (amount == null) return error
+        return s.goals
+            .transfer(g.id, to, amount, confirmed, key, reason.trim().ifEmpty { null })
+            .errorRes()
+            .also { if (it == null) mutable.value = load() }
+    }
 
     suspend fun create(
         name: String,

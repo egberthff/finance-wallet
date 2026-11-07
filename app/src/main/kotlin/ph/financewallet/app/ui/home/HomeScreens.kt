@@ -20,6 +20,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -46,6 +47,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import ph.financewallet.app.AppServices
 import ph.financewallet.app.R
+import ph.financewallet.app.ui.categories.CategoryIcon
+import ph.financewallet.app.ui.categories.categoryStyleFor
 import ph.financewallet.app.ui.common.AmountText
 import ph.financewallet.app.ui.common.CardList
 import ph.financewallet.app.ui.common.ChoiceChips
@@ -58,10 +61,12 @@ import ph.financewallet.app.ui.common.NavRow
 import ph.financewallet.app.ui.common.ScreenTitle
 import ph.financewallet.app.ui.common.SectionTitle
 import ph.financewallet.app.ui.common.SurfaceCard
+import ph.financewallet.app.ui.common.Tables
 import ph.financewallet.app.ui.common.TxnAmount
 import ph.financewallet.app.ui.common.TxnIcon
 import ph.financewallet.app.ui.common.display
 import ph.financewallet.app.ui.common.errorRes
+import ph.financewallet.app.ui.common.reloadOn
 import ph.financewallet.app.ui.components.LoadingState
 import ph.financewallet.app.ui.theme.AppIcons
 import ph.financewallet.app.ui.theme.LocalFinanceColors
@@ -94,6 +99,8 @@ data class HomeState(
     /** R-10: there are transactions but no backup, or the last one is older than 30 days. */
     val backupDue: Boolean = false,
     val today: java.time.LocalDate? = null,
+    /** Icon and colour per category id (archived included) for recent rows titled by their category. */
+    val categoryStyles: Map<String, CategoryRow> = emptyMap(),
 )
 
 class HomeViewModel(
@@ -101,6 +108,11 @@ class HomeViewModel(
 ) : ViewModel() {
     private val mutable = MutableStateFlow(HomeState())
     val state: StateFlow<HomeState> = mutable
+
+    init {
+        refresh()
+        reloadOn(s, *Tables.HOME) { mutable.value = load() }
+    }
 
     fun refresh() {
         viewModelScope.launch { mutable.value = load() }
@@ -133,6 +145,7 @@ class HomeViewModel(
             monthIncome = month?.income ?: Money.zero(php),
             monthSpending = month?.spending ?: Money.zero(php),
             recent = recent,
+            categoryStyles = s.categories.categories(includeArchived = true).associateBy { it.id },
             backupDue = recent.isNotEmpty() && (lastBackup == null || s.ctx.nowMillis() - lastBackup > BACKUP_REMINDER_MS),
             hasAccounts = accounts.isNotEmpty(),
             upcomingBills =
@@ -163,9 +176,9 @@ fun HomeScreen(
     onAddTransaction: () -> Unit,
     onBills: () -> Unit,
     onBackup: () -> Unit,
+    onOpenTransaction: (String) -> Unit = {},
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
-    LaunchedEffect(Unit) { vm.refresh() }
     if (state.loading) {
         LoadingState(stringResource(R.string.loading))
         return
@@ -201,7 +214,7 @@ fun HomeScreen(
             }
             item { MonthCard(state) }
             if (state.upcomingBills.isNotEmpty()) item { UpcomingBills(state.upcomingBills, onBills) }
-            if (state.recent.isNotEmpty()) item { RecentCard(state.recent) }
+            if (state.recent.isNotEmpty()) item { RecentCard(state.recent, state.categoryStyles, onOpenTransaction) }
         }
         ExtendedFloatingActionButton(
             onClick = onAddTransaction,
@@ -314,7 +327,11 @@ private fun UpcomingBills(
 }
 
 @Composable
-private fun RecentCard(recent: List<TransactionListItem>) {
+private fun RecentCard(
+    recent: List<TransactionListItem>,
+    categoryStyles: Map<String, CategoryRow>,
+    onOpen: (String) -> Unit,
+) {
     Column {
         SectionTitle(stringResource(R.string.home_recent))
         SurfaceCard {
@@ -324,7 +341,11 @@ private fun RecentCard(recent: List<TransactionListItem>) {
                     ph.financewallet.app.ui.transactions
                         .txnTitle(t),
                     subtitle = "${t.date.display()} · ${t.accountName}",
-                    leading = { TxnIcon(t.type, t.amount) },
+                    onClick = { onOpen(t.id) },
+                    leading = {
+                        val style = categoryStyleFor(t, categoryStyles)
+                        if (style != null) CategoryIcon(style) else TxnIcon(t.type, t.amount)
+                    },
                 ) { TxnAmount(t.type, t.amount) }
             }
         }
@@ -363,151 +384,6 @@ private fun NoticeCard(
 
 private val FAB_CLEARANCE = 96.dp
 private val HEADER_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Locale.ENGLISH)
-
-data class CategoriesState(
-    val loading: Boolean = true,
-    val categories: List<CategoryRow> = emptyList(),
-)
-
-/** UC-14 screen state plus the optional default seed (CAT-02). */
-class CategoriesViewModel(
-    private val s: AppServices,
-) : ViewModel() {
-    private val mutable = MutableStateFlow(CategoriesState())
-    val state: StateFlow<CategoriesState> = mutable
-
-    fun refresh() {
-        viewModelScope.launch { mutable.value = CategoriesState(false, s.categories.categories()) }
-    }
-
-    suspend fun create(
-        name: String,
-        cls: AccountClass,
-        parentId: String?,
-    ): Int? =
-        s.categories
-            .create(name, cls, parentId)
-            .errorRes()
-            .also { if (it == null) refresh() }
-
-    suspend fun archive(id: String): Int? =
-        s.categories
-            .archive(id)
-            .errorRes()
-            .also { if (it == null) refresh() }
-
-    suspend fun seed(): Int? =
-        s.categories
-            .seedDefaults()
-            .errorRes()
-            .also { if (it == null) refresh() }
-}
-
-@Composable
-fun CategoriesScreen(vm: CategoriesViewModel) {
-    val state by vm.state.collectAsStateWithLifecycle()
-    val scope = rememberCoroutineScope()
-    var adding by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<Int?>(null) }
-    LaunchedEffect(Unit) { vm.refresh() }
-    val spacing = LocalSpacing.current
-    ListScreen(stringResource(R.string.categories_add), { adding = true }) {
-        if (state.categories.isEmpty() && !state.loading) {
-            item {
-                SurfaceCard {
-                    Column(Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                        Text(stringResource(R.string.categories_seed_explain), style = MaterialTheme.typography.bodyMedium)
-                        Button(onClick = { scope.launch { error = vm.seed() } }) { Text(stringResource(R.string.categories_seed)) }
-                    }
-                }
-            }
-        }
-        if (error != null) item { ErrorLine(error) }
-        listOf(AccountClass.INCOME, AccountClass.EXPENSE).forEach { cls ->
-            val group = ordered(state.categories.filter { it.accountClass == cls.name })
-            if (group.isNotEmpty()) {
-                item { SectionTitle(stringResource(if (cls == AccountClass.INCOME) R.string.kind_income else R.string.kind_expense)) }
-                item { CategoryGroup(group, cls, onArchive = { id -> scope.launch { error = vm.archive(id) } }) }
-            }
-        }
-    }
-    if (adding) AddCategoryDialog(vm, state.categories, onDismiss = { adding = false })
-}
-
-/** Top-level categories in their stored order, each followed by its subcategories. */
-private fun ordered(list: List<CategoryRow>): List<CategoryRow> {
-    val children = list.filter { it.parentId != null }.groupBy { it.parentId }
-    val ids = list.map { it.id }.toSet()
-    // A subcategory whose parent is archived (not in the list) still shows, on its own.
-    val roots = list.filter { it.parentId == null || it.parentId !in ids }
-    return roots.flatMap { listOf(it) + children[it.id].orEmpty() }
-}
-
-@Composable
-private fun CategoryGroup(
-    group: List<CategoryRow>,
-    cls: AccountClass,
-    onArchive: (String) -> Unit,
-) {
-    val fc = LocalFinanceColors.current
-    val byId = group.associateBy { it.id }
-    val (tint, disc) = if (cls == AccountClass.INCOME) fc.income to fc.incomeSoft else fc.expense to fc.expenseSoft
-    CardList(group) { c ->
-        val parent = c.parentId?.let { byId[it] }
-        ListRow(
-            c.name,
-            modifier = if (parent != null) Modifier.padding(start = LocalSpacing.current.lg) else Modifier,
-            subtitle = parent?.let { stringResource(R.string.categories_subcategory_of, it.name) },
-            leading = { IconDisc(AppIcons.Label, tint, disc) },
-        ) {
-            TextButton(onClick = { onArchive(c.id) }) {
-                Text(stringResource(R.string.action_archive), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    }
-}
-
-@Composable
-private fun AddCategoryDialog(
-    vm: CategoriesViewModel,
-    existing: List<CategoryRow>,
-    onDismiss: () -> Unit,
-) {
-    val scope = rememberCoroutineScope()
-    var name by remember { mutableStateOf("") }
-    var cls by remember { mutableStateOf(AccountClass.EXPENSE) }
-    var parent by remember { mutableStateOf<CategoryRow?>(null) }
-    var error by remember { mutableStateOf<Int?>(null) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.categories_add)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
-                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.field_name)) }, singleLine = true)
-                ChoiceChips(listOf(AccountClass.EXPENSE, AccountClass.INCOME), cls, {
-                    stringResource(if (it == AccountClass.INCOME) R.string.kind_income else R.string.kind_expense)
-                }, {
-                    cls = it
-                    parent = null
-                })
-                Text(stringResource(R.string.categories_parent_optional), style = MaterialTheme.typography.bodySmall)
-                ChoiceChips(existing.filter { it.accountClass == cls.name && it.parentId == null }, parent, { it.name }, {
-                    parent = if (parent == it) null else it
-                })
-                ErrorLine(error)
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                scope.launch {
-                    error = vm.create(name, cls, parent?.id)
-                    if (error == null) onDismiss()
-                }
-            }) { Text(stringResource(R.string.action_save)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
-}
 
 @Composable
 fun MoreScreen(

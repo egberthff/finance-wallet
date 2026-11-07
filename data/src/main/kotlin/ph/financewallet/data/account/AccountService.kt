@@ -1,11 +1,9 @@
 package ph.financewallet.data.account
 
 import ph.financewallet.data.db.FinanceDatabase
-import ph.financewallet.data.db.entity.AuditEventEntity
 import ph.financewallet.data.db.entity.ReconciliationEntity
 import ph.financewallet.data.db.validatedWrite
 import ph.financewallet.data.ledger.LedgerService
-import ph.financewallet.data.ledger.RevisionJson
 import ph.financewallet.data.ledger.TxnHeader
 import ph.financewallet.data.ledger.WriteContext
 import ph.financewallet.domain.common.DomainResult
@@ -28,6 +26,13 @@ data class AccountEdit(
     val currency: CurrencyCode,
     val openingDate: LocalDate,
     val openingAmount: Money,
+)
+
+/** An account's editable values with the version to send back, and whether its currency is locked (UC-02). */
+data class AccountEditState(
+    val edit: AccountEdit,
+    val version: Long,
+    val currencyLocked: Boolean,
 )
 
 data class ReconcileResult(
@@ -60,6 +65,35 @@ class AccountService(
     private val ledgerDao get() = db.ledgerDao()
 
     suspend fun accounts(includeArchived: Boolean = false): List<AccountRow> = dao.accounts(includeArchived)
+
+    /**
+     * The current values of an account as an [AccountEdit] (for the edit form, UC-02), its version for the stale-edit
+     * check, and whether the currency can still change. Null if the account does not exist.
+     */
+    suspend fun editState(accountId: String): AccountEditState? {
+        val account = ledgerDao.ledgerAccount(accountId) ?: return null
+        val financial = ledgerDao.financialAccount(accountId) ?: return null
+        val currency = CurrencyCode.of(checkNotNull(account.currency))
+        val opening = ledgerDao.liveOpeningOf(accountId)
+        val signed = opening?.let { o -> ledgerDao.entries(o.id).firstOrNull { it.ledgerAccountId == accountId }?.amountMinor } ?: 0L
+        val amount = if (account.accountClass == AccountClass.LIABILITY.name) -signed else signed
+        return AccountEditState(
+            AccountEdit(
+                name = account.name,
+                institution = financial.institution,
+                accountNumberLast4 = financial.accountNumberLast4,
+                includeInNetWorth = financial.includeInNetWorth,
+                spendable = financial.spendable,
+                creditLimit = financial.creditLimitMinor?.let { Money(it, currency) },
+                reconcileReminderDays = financial.reconcileReminderDays,
+                currency = currency,
+                openingDate = LocalDate.parse(opening?.txnDate ?: financial.openingDate),
+                openingAmount = Money(amount, currency),
+            ),
+            version = financial.version,
+            currencyLocked = dao.nonOpeningEntryCount(accountId) > 0,
+        )
+    }
 
     /** UC-02. The opening balance is edited through its own SYSTEM transaction, so it keeps a revision history. */
     suspend fun edit(
@@ -239,7 +273,9 @@ class AccountService(
     ) {
         val signed = if (cls == AccountClass.LIABILITY) -edit.openingAmount else edit.openingAmount
         val key = "opening:$accountId"
-        val existing = ledgerDao.txnByIdempotencyKey(key)?.takeIf { it.deletedAt == null }
+        // Found by account, not by key: a re-created opening has a different key (see below), and looking it up by
+        // the original key would miss it and record a second opening balance.
+        val existing = ledgerDao.liveOpeningOf(accountId)
         val header = TxnHeader(edit.openingDate, key, source = "SYSTEM")
         when {
             existing == null && !signed.isZero -> {
@@ -281,15 +317,7 @@ class AccountService(
         kind: String,
         entityId: String,
         detail: Map<String, String>,
-    ) {
-        val json =
-            detail.toSortedMap().entries.joinToString(
-                ",",
-                "{",
-                "}",
-            ) { (k, v) -> "\"${RevisionJson.escape(k)}\":\"${RevisionJson.escape(v)}\"" }
-        dao.insertAudit(AuditEventEntity(ctx.ids.newId(), kind, "account", entityId, json, ctx.deviceId, ctx.nowMillis()))
-    }
+    ) = dao.audit(ctx, kind, "account", entityId, detail)
 
     private companion object {
         const val MAX_NAME = 80

@@ -101,3 +101,11 @@ data class BudgetHeader(
     val incomeMode: IncomeMode,
     val version: Long,
 )
+
+/** What the budget edit screen starts from (UC-16): settings, the period rule, and when a new rule could start. */
+data class BudgetEditState(
+    val settings: BudgetSettings,
+    val rule: PeriodRule,
+    val version: Long,
+    val ruleChangeFrom: LocalDate,
+)

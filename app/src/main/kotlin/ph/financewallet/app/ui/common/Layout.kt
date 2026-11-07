@@ -12,11 +12,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -40,6 +44,8 @@ val FAB_CLEARANCE = 96.dp
 fun ListScreen(
     fabLabel: String? = null,
     onFab: () -> Unit = {},
+    snackbarHostState: SnackbarHostState? = null,
+    listState: LazyListState? = null,
     content: LazyListScope.() -> Unit,
 ) {
     val spacing = LocalSpacing.current
@@ -47,9 +53,11 @@ fun ListScreen(
         contentWindowInsets = WindowInsets(0),
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = { if (fabLabel != null) AddFab(fabLabel, onFab) },
+        snackbarHost = { if (snackbarHostState != null) SnackbarHost(snackbarHostState) },
     ) { padding ->
         LazyColumn(
             Modifier.padding(padding).fillMaxSize(),
+            state = listState ?: rememberLazyListState(),
             contentPadding =
                 PaddingValues(
                     start = spacing.md,
